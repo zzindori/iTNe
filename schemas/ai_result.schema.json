@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://itne.local/schemas/ai_result.schema.json",
+  "title": "iTNe AI Recognition Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "captureId",
+    "category",
+    "primaryLabel",
+    "stateTags",
+    "confidence",
+    "modelVersion",
+    "rawJson",
+    "createdAt"
+  ],
+  "properties": {
+    "captureId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "MEAT",
+        "SEAFOOD",
+        "VEG",
+        "FRUIT",
+        "DAIRY_EGG",
+        "GRAIN_NOODLE",
+        "SAUCE",
+        "DRINK",
+        "PROCESSED",
+        "ETC"
+      ]
+    },
+    "primaryLabel": {
+      "type": "string",
+      "minLength": 1
+    },
+    "secondaryLabel": {
+      "type": ["string", "null"]
+    },
+    "secondaryLabelGuess": {
+      "type": "boolean",
+      "default": true
+    },
+    "stateTags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "raw",
+          "cooked",
+          "frozen",
+          "chilled",
+          "packaged",
+          "opened",
+          "leftover",
+          "sliced"
+        ]
+      },
+      "uniqueItems": true,
+      "default": []
+    },
+    "freshnessHint": {
+      "type": ["string", "null"],
+      "enum": ["OK", "USE_SOON", "URGENT", null]
+    },
+    "shelfLifeDays": {
+      "type": ["integer", "null"],
+      "minimum": 1
+    },
+    "amountLabel": {
+      "type": ["string", "null"],
+      "enum": ["LOW", "MEDIUM", "HIGH", null]
+    },
+    "usageRole": {
+      "type": ["string", "null"],
+      "enum": ["MAIN_INGREDIENT", "SIDE", "SEASONING", null]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "modelVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rawJson": {
+      "type": "object"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

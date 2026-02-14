@@ -1,0 +1,104 @@
+{
+  "credit": {
+    "version": "1.0",
+    "unit": {
+      "name": "크레딧",
+      "symbol": "💳",
+      "perAiUse": 1,
+      "currency": "USD",
+      "description": "1 크레딧 = 1 AI 사용"
+    },
+    "signup_bonus": {
+      "credits": 5,
+      "description": "무료 - 5 크레딧 제공"
+    },
+    "packages": {
+      "ingredient_scan": {
+        "name": "사진 재료 AI 분석",
+        "id": "ingredient_scan",
+        "cost_credits": 1,
+        "cost_usd": 0.0399,
+        "description": "사진에서 재료를 AI로 분석"
+      },
+      "recipe_generate": {
+        "name": "레시피 생성",
+        "id": "recipe_generate",
+        "cost_credits": 1,
+        "cost_usd": 0.0399,
+        "description": "레시피 생성 + 대체 재료 추천",
+        "includes": ["recipe_generation", "substitute_suggestions"]
+      },
+      "image_generate": {
+        "name": "요리 이미지 생성",
+        "id": "image_generate",
+        "cost_credits": 1,
+        "cost_usd": 0.0399,
+        "description": "Stability로 요리 이미지 생성",
+        "is_optional": true
+      }
+    },
+    "rewards": {
+      "ad_watch": {
+        "type": "rewarded_ad",
+        "reward_credits": 0.5,
+        "description": "광고 2개 = 1 크레딧",
+        "daily_limit": 10,
+        "cooldown_seconds": 30
+      }
+    },
+    "in_app_purchase": {
+      "products": [
+        {
+          "id": "coffee",
+          "credits": 100,
+          "price_usd": 3.99,
+          "title": "AI 셰프에게 커피 한 잔 ☕",
+          "description": "크레딧 100개 제공"
+        },
+        {
+          "id": "support",
+          "credits": 250,
+          "price_usd": 7.99,
+          "title": "AI 셰프에게 커피 두 잔 ☕☕",
+          "description": "크레딧 250개 제공"
+        }
+      ]
+    },
+    "limits": {
+      "daily_free_credits": 5,
+      "daily_ad_watch_limit": 10,
+      "minimum_credit_warning": 1
+    },
+    "ui": {
+      "symbol": "💳",
+      "unit_name": "크레딧",
+      "confirm_modal_title": "크레딧 사용 안내",
+      "deduct_label": "차감 크레딧",
+      "insufficient_title": "크레딧 부족",
+      "insufficient_prefix": "크레딧이 부족합니다. 현재:",
+      "insufficient_message": "이 기능을 사용하려면 크레딧이 부족해요.",
+      "watch_ad_suggestion": "광고를 보면 크레딧을 받을 수 있어요.",
+      "button_execute": "실행하기",
+      "button_cancel": "취소",
+      "button_charge": "충전하기",
+      "button_watch_ad": "광고 보기",
+      "button_purchase": "구매하기",
+      "button_close": "닫기",
+      "balance_title": "크레딧 잔량",
+      "alert_on": "알림 ON",
+      "alert_off": "알림 OFF",
+      "usage_section_title": "💡 크레딧 사용량",
+      "usage_description": "사진분석, 레시피 생성, 이미지 생성, 대체재료 안내는 1크레딧이 삭제 됩니다.",
+      "charge_section_title": "☕ 크레딧 충전",
+      "ad_watch_option": "광고 2개 보기",
+      "ad_short": "광고",
+      "purchase_short": "구매",
+      "not_available": "(미제공)",
+      "snackbar_ad_coming_soon": "광고 보기 기능은 곧 제공 예정입니다",
+      "snackbar_purchase_coming_soon": "앱 업데이트 예정: 크레딧 구매 기능",
+      "snackbar_loading_credit": "크레딧 정보를 불러오는 중...",
+      "snackbar_deduct_failed": "크레딧 차감 실패",
+      "snackbar_reanalyze_started": "재분석이 시작되었습니다"
+    }
+  }
+}

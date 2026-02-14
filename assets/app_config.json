@@ -1,0 +1,466 @@
+{
+  "split_ratio": 0.50,
+  "max_photos": 200,
+  "auto_save": false,
+  "camera_resolution": "high",
+  "gallery_page_indicator": false,
+  "haptic_feedback": true,
+  "preview_aspect_ratio_multiplier": 1.0,
+  "default_primary_label": "미분류",
+  "ai_enabled": true,
+  "ai_endpoint": "",
+  "ai_api_key": "",
+  "ai_timeout_ms": 8000,
+  "stability_api_key": "",
+  "ocr_scripts": ["latin", "korean", "japanese", "chinese"],
+  "primary_label_category_map": {
+    "채소": "VEG",
+    "과일": "FRUIT",
+    "고기": "MEAT",
+    "해산물": "SEAFOOD",
+    "유제품": "DAIRY_EGG",
+    "계란": "DAIRY_EGG",
+    "계란/유제품": "DAIRY_EGG",
+    "곡물": "GRAIN_NOODLE",
+    "면": "GRAIN_NOODLE",
+    "양념": "SAUCE",
+    "소스": "SAUCE",
+    "음료": "DRINK",
+    "가공식품": "PROCESSED",
+    "미분류": "ETC",
+    "기타": "ETC",
+    "비식재료": "ETC"
+  },
+  "category_display_map": {
+    "MEAT": "정육",
+    "SEAFOOD": "수산",
+    "VEG": "채소",
+    "FRUIT": "과일",
+    "DAIRY_EGG": "계란/유제품",
+    "GRAIN_NOODLE": "쌀/잡곡/면",
+    "SAUCE": "양념/소스",
+    "DRINK": "음료",
+    "PROCESSED": "가공/간편",
+    "ETC": "기타"
+  },
+  "freshness_display_map": {
+    "OK": "양호",
+    "USE_SOON": "곧 사용",
+    "URGENT": "긴급"
+  },
+  "shelf_life_days_map": {
+    "오이": 7
+  },
+  "shelf_life_days_frozen_map": {
+    "오이": 21
+  },
+  "recipe_categories": [
+    {
+      "id": "MAIN",
+      "label": "메인요리",
+      "icon": "🍽️"
+    },
+    {
+      "id": "SOUP",
+      "label": "국/탕",
+      "icon": "🥣"
+    },
+    {
+      "id": "STEW",
+      "label": "찌개/전골",
+      "icon": "🍲"
+    },
+    {
+      "id": "SIDE",
+      "label": "반찬",
+      "icon": "🥗"
+    },
+    {
+      "id": "EXTRA",
+      "label": "부식/곁들임",
+      "icon": "🥟"
+    }
+  ],
+  "freshness_style_map": {
+    "URGENT": {
+      "badge_bg": "#FFE4E4",
+      "badge_border": "#FF6B6B"
+    },
+    "USE_SOON": {
+      "badge_bg": "#FFF3D6",
+      "badge_border": "#FFB300"
+    },
+    "OK": {
+      "badge_bg": "#E6F6EA",
+      "badge_border": "#2E7D32"
+    }
+  },
+  "amount_display_map": {
+    "LOW": "적음",
+    "MEDIUM": "보통",
+    "HIGH": "많음"
+  },
+  "usage_role_display_map": {
+    "MAIN_INGREDIENT": "주재료",
+    "SIDE": "부재료",
+    "SEASONING": "양념"
+  },
+  "state_tag_display_map": {
+    "raw": "생",
+    "cooked": "조리됨",
+    "frozen": "냉동",
+    "chilled": "냉장",
+    "room": "실온",
+    "packaged": "포장",
+    "opened": "개봉",
+    "leftover": "남은 음식",
+    "sliced": "슬라이스",
+    "alcohol": "주류",
+    "ready_to_eat": "즉석"
+  },
+  "material_index": [
+    {
+      "keyword": "옥수수",
+      "category": "VEG",
+      "primaryLabel": "과채",
+      "secondaryLabel": "옥수수",
+      "stateTags": ["raw"],
+      "aliases": ["스위트콘"]
+    },
+    {
+      "keyword": "옥수수캔",
+      "category": "PROCESSED",
+      "primaryLabel": "통조림",
+      "secondaryLabel": "옥수수캔",
+      "stateTags": ["packaged"],
+      "aliases": ["콘통조림"]
+    },
+    {
+      "keyword": "삼겹살",
+      "category": "MEAT",
+      "primaryLabel": "돼지고기",
+      "secondaryLabel": "삼겹살",
+      "stateTags": ["raw"],
+      "aliases": ["돼지삼겹"]
+    },
+    {
+      "keyword": "닭가슴살",
+      "category": "MEAT",
+      "primaryLabel": "닭/계육",
+      "secondaryLabel": "닭가슴살",
+      "stateTags": ["raw"],
+      "aliases": ["닭가슴"]
+    },
+    {
+      "keyword": "갈비",
+      "category": "MEAT",
+      "primaryLabel": "소고기",
+      "secondaryLabel": "갈비",
+      "stateTags": ["raw"],
+      "aliases": ["소갈비"]
+    },
+    {
+      "keyword": "연어",
+      "category": "SEAFOOD",
+      "primaryLabel": "생선",
+      "secondaryLabel": "연어",
+      "stateTags": ["raw"],
+      "aliases": ["연어살"]
+    },
+    {
+      "keyword": "고등어",
+      "category": "SEAFOOD",
+      "primaryLabel": "생선",
+      "secondaryLabel": "고등어",
+      "stateTags": ["raw"],
+      "aliases": ["고등어살"]
+    },
+    {
+      "keyword": "새우",
+      "category": "SEAFOOD",
+      "primaryLabel": "갑각류",
+      "secondaryLabel": "새우",
+      "stateTags": ["raw"],
+      "aliases": ["생새우"]
+    },
+    {
+      "keyword": "오징어",
+      "category": "SEAFOOD",
+      "primaryLabel": "연체류",
+      "secondaryLabel": "오징어",
+      "stateTags": ["raw"],
+      "aliases": ["오징어살"]
+    },
+    {
+      "keyword": "상추",
+      "category": "VEG",
+      "primaryLabel": "잎채소",
+      "secondaryLabel": "상추",
+      "stateTags": ["raw"],
+      "aliases": ["쌈채소"]
+    },
+    {
+      "keyword": "시금치",
+      "category": "VEG",
+      "primaryLabel": "잎채소",
+      "secondaryLabel": "시금치",
+      "stateTags": ["raw"],
+      "aliases": []
+    },
+    {
+      "keyword": "감자",
+      "category": "VEG",
+      "primaryLabel": "뿌리채소",
+      "secondaryLabel": "감자",
+      "stateTags": ["raw"],
+      "aliases": []
+    },
+    {
+      "keyword": "고구마",
+      "category": "VEG",
+      "primaryLabel": "뿌리채소",
+      "secondaryLabel": "고구마",
+      "stateTags": ["raw"],
+      "aliases": []
+    },
+    {
+      "keyword": "토마토",
+      "category": "VEG",
+      "primaryLabel": "과채",
+      "secondaryLabel": "토마토",
+      "stateTags": ["raw"],
+      "aliases": []
+    },
+    {
+      "keyword": "사과",
+      "category": "FRUIT",
+      "primaryLabel": "제철과일",
+      "secondaryLabel": "사과",
+      "stateTags": ["raw"],
+      "aliases": ["부사"]
+    },
+    {
+      "keyword": "바나나",
+      "category": "FRUIT",
+      "primaryLabel": "열대과일",
+      "secondaryLabel": "바나나",
+      "stateTags": ["raw"],
+      "aliases": []
+    },
+    {
+      "keyword": "우유",
+      "category": "DAIRY_EGG",
+      "primaryLabel": "우유/유제품",
+      "secondaryLabel": "우유",
+      "stateTags": ["chilled", "packaged"],
+      "aliases": ["우유팩"]
+    },
+    {
+      "keyword": "치즈",
+      "category": "DAIRY_EGG",
+      "primaryLabel": "우유/유제품",
+      "secondaryLabel": "치즈",
+      "stateTags": ["chilled", "packaged"],
+      "aliases": ["슬라이스치즈"]
+    },
+    {
+      "keyword": "계란",
+      "category": "DAIRY_EGG",
+      "primaryLabel": "계란",
+      "secondaryLabel": "달걀",
+      "stateTags": ["raw"],
+      "aliases": ["달걀", "계란판"]
+    },
+    {
+      "keyword": "쌀",
+      "category": "GRAIN_NOODLE",
+      "primaryLabel": "쌀/잡곡",
+      "secondaryLabel": "쌀",
+      "stateTags": ["room", "packaged"],
+      "aliases": ["백미", "쌀포대"]
+    },
+    {
+      "keyword": "라면",
+      "category": "GRAIN_NOODLE",
+      "primaryLabel": "면/파스타",
+      "secondaryLabel": "라면",
+      "stateTags": ["room", "packaged"],
+      "aliases": ["라면봉지"]
+    },
+    {
+      "keyword": "즉석밥",
+      "category": "PROCESSED",
+      "primaryLabel": "간편식",
+      "secondaryLabel": "즉석밥",
+      "stateTags": ["room", "packaged", "ready_to_eat"],
+      "aliases": ["레토르트밥"]
+    },
+    {
+      "keyword": "만두",
+      "category": "PROCESSED",
+      "primaryLabel": "냉동",
+      "secondaryLabel": "만두",
+      "stateTags": ["frozen", "packaged"],
+      "aliases": ["냉동만두"]
+    },
+    {
+      "keyword": "김치",
+      "category": "VEG",
+      "primaryLabel": "나물",
+      "secondaryLabel": "김치",
+      "stateTags": ["chilled", "packaged"],
+      "aliases": ["배추김치"]
+    },
+    {
+      "keyword": "간장",
+      "category": "SAUCE",
+      "primaryLabel": "장류",
+      "secondaryLabel": "간장",
+      "stateTags": ["room", "packaged"],
+      "aliases": ["진간장"]
+    },
+    {
+      "keyword": "고추장",
+      "category": "SAUCE",
+      "primaryLabel": "장류",
+      "secondaryLabel": "고추장",
+      "stateTags": ["room", "packaged"],
+      "aliases": []
+    },
+    {
+      "keyword": "오렌지주스",
+      "category": "DRINK",
+      "primaryLabel": "주스",
+      "secondaryLabel": "오렌지주스",
+      "stateTags": ["chilled", "packaged"],
+      "aliases": ["주스"]
+    },
+    {
+      "keyword": "콜라",
+      "category": "DRINK",
+      "primaryLabel": "탄산",
+      "secondaryLabel": "콜라",
+      "stateTags": ["room", "packaged"],
+      "aliases": []
+    },
+    {
+      "keyword": "맥주",
+      "category": "DRINK",
+      "primaryLabel": "주류",
+      "secondaryLabel": "맥주",
+      "stateTags": ["alcohol", "chilled", "packaged"],
+      "aliases": ["캔맥주"]
+    }
+  ],
+  "category_hierarchy": {
+    "MEAT": {
+      "label": "정육",
+      "children": {
+        "소고기": ["등심", "안심", "채끝", "우둔", "갈비", "양지", "사태"],
+        "돼지고기": ["삼겹살", "목살", "앞다리", "뒷다리", "갈비", "항정살", "족발", "등심", "갈매기살"],
+        "닭/계육": ["닭가슴살", "닭다리", "닭날개", "통닭", "닭볶음용", "안심", "닭봉"],
+        "오리": ["오리로스", "오리훈제"],
+        "내장/특수부위": ["곱창", "대창", "막창", "염통", "곱창전골용"],
+        "양고기": ["양고기", "양갈비"],
+        "정육 기타": ["혼합", "다짐육", "불고기용", "국거리"]
+      }
+    },
+    "SEAFOOD": {
+      "label": "수산",
+      "children": {
+        "생선": ["고등어", "연어", "갈치", "참치", "삼치", "대구", "광어", "우럭"],
+        "갑각류": ["새우", "게", "랍스터", "크릴"],
+        "조개/패류": ["조개", "홍합", "바지락", "가리비", "전복"],
+        "연체류": ["오징어", "문어", "낙지", "쭈꾸미"],
+        "해조류": ["김", "미역", "다시마"],
+        "건어물": ["오징어포", "명태포", "황태", "쥐포", "멸치"],
+        "수산가공": ["어묵", "맛살", "젓갈", "튀김용"],
+        "알/젓": ["날치알", "연어알", "명란", "어란"]
+      }
+    },
+    "VEG": {
+      "label": "채소",
+      "children": {
+        "잎채소": ["상추", "시금치", "깻잎", "배추", "청경채", "양상추"],
+        "뿌리채소": ["무", "당근", "감자", "고구마", "연근", "우엉"],
+        "과채": ["오이", "토마토", "가지", "호박", "파프리카", "피망"],
+        "향채": ["파", "마늘", "양파", "생강", "고추"],
+        "버섯": ["표고", "새송이", "느타리", "팽이", "양송이"],
+        "샐러드/간편채소": ["샐러드", "믹스채소", "샐러드채소"],
+        "나물": ["고사리", "도라지", "취나물", "시래기"],
+        "양념채소": ["대파", "쪽파", "부추", "쑥갓"]
+      }
+    },
+    "FRUIT": {
+      "label": "과일",
+      "children": {
+        "제철과일": ["사과", "배", "감", "복숭아", "자두"],
+        "열대과일": ["바나나", "파인애플", "망고", "파파야", "용과"],
+        "베리": ["딸기", "블루베리", "라즈베리", "크랜베리"],
+        "감귤": ["귤", "오렌지", "레몬", "자몽", "한라봉"],
+        "기타": ["포도", "키위", "수박", "멜론", "체리"],
+        "말린과일": ["건포도", "건망고", "건무화과"]
+      }
+    },
+    "DAIRY_EGG": {
+      "label": "계란/유제품",
+      "children": {
+        "계란": ["달걀", "메추리알"],
+        "우유/유제품": ["우유", "치즈", "요거트", "버터", "생크림", "크림치즈"],
+        "디저트": ["푸딩", "아이스크림", "요거트아이스"]
+      }
+    },
+    "GRAIN_NOODLE": {
+      "label": "쌀/잡곡/면",
+      "children": {
+        "쌀/잡곡": ["쌀", "보리", "현미", "오트", "퀴노아", "잡곡"],
+        "면/파스타": ["국수", "라면", "파스타", "우동", "쌀국수", "당면"],
+        "빵/베이커리": ["식빵", "바게트", "베이글", "크루아상", "호밀빵"],
+        "떡류": ["떡", "가래떡", "떡볶이떡", "송편"],
+        "견과/시리얼": ["견과", "시리얼", "그래놀라"]
+      }
+    },
+    "SAUCE": {
+      "label": "양념/소스",
+      "children": {
+        "장류": ["간장", "고추장", "된장", "쌈장", "춘장"],
+        "소스": ["케첩", "마요네즈", "소스류", "드레싱"],
+        "향신료": ["후추", "소금", "설탕", "고춧가루", "마늘가루", "허브"],
+        "오일": ["참기름", "식용유", "올리브유", "버터오일", "포도씨유"],
+        "식초": ["식초", "발사믹식초", "레몬즙"]
+      }
+    },
+    "DRINK": {
+      "label": "음료",
+      "children": {
+        "물": ["생수", "탄산수"],
+        "주스": ["오렌지주스", "사과주스", "포도주스"],
+        "탄산": ["콜라", "사이다", "에너지음료"],
+        "커피": ["아메리카노", "라떼", "콜드브루"],
+        "차": ["녹차", "홍차", "보리차"],
+        "유제품음료": ["요구르트", "우유", "요구르트음료"],
+        "주류": ["맥주", "와인", "소주"]
+      }
+    },
+    "PROCESSED": {
+      "label": "가공/간편",
+      "children": {
+        "냉동": ["만두", "피자", "너겟", "감자튀김", "냉동채소"],
+        "간편식": ["즉석밥", "컵라면", "밀키트", "레토르트"],
+        "반찬/조리": ["반찬", "조리식품", "볶음/조림"],
+        "통조림": ["참치캔", "스팸", "옥수수캔", "과일캔"],
+        "스낵/간식": ["과자", "초콜릿", "비스킷", "견과스낵"],
+        "가공육": ["햄", "소시지", "베이컨", "햄버그"],
+        "빵/디저트": ["케이크", "파이", "도넛"]
+      }
+    },
+    "ETC": {
+      "label": "기타",
+      "children": {
+        "미분류": [],
+        "기타": [],
+        "비식재료": []
+      }
+    }
+  }
+}

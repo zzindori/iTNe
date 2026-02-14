@@ -1,0 +1,24 @@
+# Flutter/Dart
+.dart_tool/
+.buildlog
+.packages
+
+# Build outputs
+build/
+
+# Android
+android/gradle/wrapper/gradle-wrapper.jar
+android/.gradle/
+android/captures/
+android/local.properties
+android/**/GeneratedPluginRegistrant.java
+
+# iOS
+ios/Flutter/ephemeral/
+ios/Runner/GeneratedPluginRegistrant.*
+
+# VS Code
+.vscode/
+
+# Misc
+*.log
