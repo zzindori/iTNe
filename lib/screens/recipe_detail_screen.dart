@@ -222,7 +222,29 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
                       size: 16,
                       color: Color(0xFF2E5E3F),
                     ),
-                    if (creditProvider.balance != null)
+                    if (creditProvider.hasActiveSubscription)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 2),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.lock,
+                              size: 12,
+                              color: Color(0xFF2E5E3F),
+                            ),
+                            SizedBox(width: 2),
+                            Text(
+                              'LOCK',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2E5E3F),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (creditProvider.balance != null)
                       Padding(
                         padding: const EdgeInsets.only(left: 2),
                         child: Text(
@@ -644,14 +666,13 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
       }
       final creditProvider = context.read<CreditProvider>();
       final balance = creditProvider.balance;
-      final cost = creditProvider.getCostInfo(CreditPackage.recipeGenerate).costCredits;
       if (balance == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(creditProvider.getUIString('snackbar_loading_credit'))),
         );
         return;
       }
-      if (balance.credits < cost) {
+      if (!creditProvider.hasEnough(CreditPackage.recipeGenerate)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(creditProvider.getUIString('snackbar_deduct_failed'))),
         );

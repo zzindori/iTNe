@@ -561,7 +561,29 @@ class _RecipeRecommendationScreenState
                     size: 16,
                     color: Color(0xFF2E5E3F),
                   ),
-                  if (creditProvider.balance != null)
+                  if (creditProvider.hasActiveSubscription)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 2),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.lock,
+                            size: 12,
+                            color: Color(0xFF2E5E3F),
+                          ),
+                          SizedBox(width: 2),
+                          Text(
+                            'LOCK',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2E5E3F),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (creditProvider.balance != null)
                     Padding(
                       padding: const EdgeInsets.only(left: 2),
                       child: Text(

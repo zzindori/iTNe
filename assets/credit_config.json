@@ -56,11 +56,20 @@
           "description": "크레딧 100개 제공"
         },
         {
-          "id": "support",
-          "credits": 250,
-          "price_usd": 7.99,
-          "title": "AI 셰프에게 커피 두 잔 ☕☕",
-          "description": "크레딧 250개 제공"
+          "id": "monthly_subscription",
+          "type": "subscription",
+          "period": "month",
+          "price_usd": 6.99,
+          "title": "한달 무제한",
+          "description": "한 달간 모든 AI 기능 무제한 사용"
+        },
+        {
+          "id": "yearly_subscription",
+          "type": "subscription",
+          "period": "year",
+          "price_usd": 59.99,
+          "title": "1년 무제한 (연간 할인)",
+          "description": "1년간 모든 AI 기능 무제한 사용"
         }
       ]
     },
