@@ -240,6 +240,25 @@ class CreditService {
     }
   }
 
+  Future<bool> addCreditsForDebug(double credits) async {
+    try {
+      final newCredits = (_currentBalance?.credits ?? 0) + credits;
+      _currentBalance = CreditBalance(
+        credits: newCredits,
+        lastUpdated: DateTime.now(),
+      );
+
+      await _saveBalance();
+
+      debugPrint('🛠️ Debug credits added: +$credits');
+      debugPrint('   Total: ${_currentBalance!.displayString}');
+      return true;
+    } catch (e) {
+      debugPrint('Failed to add debug credits: $e');
+      return false;
+    }
+  }
+
   /// Get reward credits from config (2 ads = 1 credit, so 0.5 per ad)
   double getAdRewardCredits() {
     return (_config['credit']['rewards']['ad_watch']['reward_credits'] as num? ?? 0.5).toDouble();

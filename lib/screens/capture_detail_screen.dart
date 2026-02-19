@@ -4,15 +4,19 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 import '../config/app_strings.dart';
 import '../data/dao/capture_dao.dart';
 import '../data/services/ai_recognition_service.dart';
 import '../data/services/credit_service.dart';
+import '../data/services/ad_service.dart';
 import '../models/capture_record.dart';
 import '../models/credit_provider.dart';
+import '../main.dart';
 import '../widgets/credit_confirm_dialog.dart';
 import 'recipe_recommendation_screen.dart';
+import 'reward_claim_screen.dart';
 
 class CaptureDetailScreen extends StatefulWidget {
   final CaptureRecord record;
@@ -29,6 +33,7 @@ class CaptureDetailScreen extends StatefulWidget {
 }
 
 class _CaptureDetailScreenState extends State<CaptureDetailScreen> {
+  static const String _hideExpiredWarningDateKey = 'hide_expired_warning_date';
   final CaptureDao _dao = CaptureDao();
   final AiRecognitionService _aiService = AiRecognitionService.instance;
   final TextEditingController _searchController = TextEditingController();
@@ -36,6 +41,7 @@ class _CaptureDetailScreenState extends State<CaptureDetailScreen> {
   late CaptureRecord _record;
   late final VoidCallback _revisionListener;
   bool _isReanalyzing = false;
+  bool _expiredWarningDisplayed = false;
   late _MaterialItem? _selectedMaterial;
   List<_MaterialItem> _materialIndex = [];
 
@@ -46,6 +52,9 @@ class _CaptureDetailScreenState extends State<CaptureDetailScreen> {
     _selectedMaterial = _findMaterialForRecord();
     _materialIndex = _buildSearchItems(AppConfig.instance.materialIndex);
     _loadUserMaterialIndex();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowExpiredWarningDialog();
+    });
     _revisionListener = () async {
       final updated = await _dao.getCapture(_record.id);
       if (!mounted) {
@@ -75,9 +84,11 @@ class _CaptureDetailScreenState extends State<CaptureDetailScreen> {
       return;
     }
 
+    CreditProvider? creditProvider;
+
     // �크레딧 프리뷰용 �확인
     if (mounted && context.mounted) {
-      final creditProvider = context.read<CreditProvider>();
+      creditProvider = context.read<CreditProvider>();
       final costInfo = creditProvider.getCostInfo(CreditPackage.ingredientScan);
       final currentBalance = creditProvider.balance;
 
@@ -110,17 +121,6 @@ class _CaptureDetailScreenState extends State<CaptureDetailScreen> {
       if (confirmed != true) {
         return;
       }
-
-      // �크레딧 차감
-      final authToken = await creditProvider.deductCredits(CreditPackage.ingredientScan);
-      if (authToken == null || authToken.isEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(creditProvider.getUIString('snackbar_deduct_failed'))),
-          );
-        }
-        return;
-      }
     }
 
     try {
@@ -130,13 +130,32 @@ class _CaptureDetailScreenState extends State<CaptureDetailScreen> {
         });
       }
       await _dao.resetForReanalysis(_record.id);
-      _aiService.enqueueRecognition(
-        captureId: _record.id,
-        filePath: _record.filePath,
-      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(strings.historyReanalyzeStarted)),
+        );
+      }
+
+      final success = await _aiService.enqueueRecognitionAndWait(
+        captureId: _record.id,
+        filePath: _record.filePath,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (!success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('AI 분석 실패로 크레딧이 차감되지 않았습니다')),
+        );
+        return;
+      }
+
+      final authToken = await creditProvider?.deductCredits(CreditPackage.ingredientScan);
+      if (authToken == null || authToken.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(creditProvider?.getUIString('snackbar_deduct_failed') ?? '크레딧 차감 실패')),
         );
       }
     } catch (_) {
@@ -720,6 +739,290 @@ class _CaptureDetailScreenState extends State<CaptureDetailScreen> {
     Navigator.of(context).maybePop();
   }
 
+  bool _isExpiredForDiscardWarning() {
+    final shelfLifeDays = _record.shelfLifeDays;
+    if (shelfLifeDays == null || shelfLifeDays <= 0) {
+      return false;
+    }
+    final ageDays = DateTime.now().difference(_record.createdAt).inDays;
+    return ageDays > shelfLifeDays;
+  }
+
+  Future<void> _maybeShowExpiredWarningDialog() async {
+    if (!mounted || _expiredWarningDisplayed) {
+      return;
+    }
+    if (!_isExpiredForDiscardWarning()) {
+      return;
+    }
+    if (await _isExpiredWarningHiddenToday()) {
+      return;
+    }
+    _expiredWarningDisplayed = true;
+    await _showExpiredWarningDialog();
+  }
+
+  String _todayKey() {
+    final now = DateTime.now();
+    final y = now.year.toString().padLeft(4, '0');
+    final m = now.month.toString().padLeft(2, '0');
+    final d = now.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
+  Future<bool> _isExpiredWarningHiddenToday() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hiddenDate = prefs.getString(_hideExpiredWarningDateKey);
+    return hiddenDate == _todayKey();
+  }
+
+  Future<void> _hideExpiredWarningForToday() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_hideExpiredWarningDateKey, _todayKey());
+  }
+
+  Future<void> _showExpiredWarningDialog() async {
+    final countdown = _record.shelfLifeCountdownLabel() ?? 'D+1';
+    bool hideTodayChecked = false;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return Material(
+              type: MaterialType.transparency,
+              child: Center(
+                child: Container(
+                  width: 390,
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFC0C0C0),
+                    border: Border.all(color: Colors.black, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        blurRadius: 10,
+                        offset: const Offset(3, 3),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF0A3AA2), Color(0xFF4E79D8)],
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Windows',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              width: 16,
+                              height: 16,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFC0C0C0),
+                                border: Border.all(color: Colors.black, width: 1),
+                              ),
+                              child: const Icon(Icons.close, size: 11, color: Colors.black),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                        padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFC0C0C0),
+                          border: Border.all(color: const Color(0xFF7A7A7A), width: 1),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.warning_amber_rounded,
+                                  color: Color(0xFFCC9A00),
+                                  size: 34,
+                                ),
+                                const SizedBox(width: 10),
+                                const Expanded(
+                                  child: Text(
+                                    '유통기한이 지난 식재료입니다.\n삭제(폐기)를 권장합니다.',
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 13,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '현재 상태: $countdown',
+                                style: const TextStyle(
+                                  color: Colors.black87,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            InkWell(
+                              onTap: () {
+                                setDialogState(() {
+                                  hideTodayChecked = !hideTodayChecked;
+                                });
+                              },
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: Checkbox(
+                                      value: hideTodayChecked,
+                                      onChanged: (value) {
+                                        setDialogState(() {
+                                          hideTodayChecked = value ?? false;
+                                        });
+                                      },
+                                      visualDensity: VisualDensity.compact,
+                                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Expanded(
+                                    child: Text(
+                                      '오늘 하루 숨기기',
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 90,
+                              height: 30,
+                              child: OutlinedButton(
+                                onPressed: () async {
+                                  if (hideTodayChecked) {
+                                    await _hideExpiredWarningForToday();
+                                  }
+                                  if (dialogContext.mounted) {
+                                    Navigator.of(dialogContext).pop();
+                                  }
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.black,
+                                  backgroundColor: const Color(0xFFD9D9D9),
+                                  side: const BorderSide(color: Colors.black, width: 1),
+                                  shape: const RoundedRectangleBorder(),
+                                  padding: EdgeInsets.zero,
+                                ),
+                                child: const Text('유지'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 90,
+                              height: 30,
+                              child: OutlinedButton(
+                                onPressed: () async {
+                                  if (hideTodayChecked) {
+                                    await _hideExpiredWarningForToday();
+                                  }
+                                  if (dialogContext.mounted) {
+                                    Navigator.of(dialogContext).pop();
+                                  }
+                                  await _deleteCurrentRecordAndClose();
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Colors.black,
+                                  backgroundColor: const Color(0xFFD9D9D9),
+                                  side: const BorderSide(color: Colors.black, width: 1),
+                                  shape: const RoundedRectangleBorder(),
+                                  padding: EdgeInsets.zero,
+                                ),
+                                child: const Text('삭제'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteCurrentRecordAndClose() async {
+    bool deleted = false;
+
+    try {
+      final file = File(_record.filePath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e) {
+      debugPrint('❌ [CaptureDetail] File delete failed: $e');
+    }
+
+    try {
+      deleted = await _dao.deleteCapture(_record.id);
+    } catch (e) {
+      debugPrint('❌ [CaptureDetail] DB delete failed: $e');
+      deleted = false;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    if (!deleted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('삭제에 실패했습니다. 다시 시도해 주세요.')),
+      );
+      return;
+    }
+
+    Navigator.of(context).pop({
+      'deletedId': _record.id,
+    });
+  }
+
   Widget _buildEditLevelRow({
     required String label,
     required String value,
@@ -1111,23 +1414,73 @@ class _CaptureDetailScreenState extends State<CaptureDetailScreen> {
       costInfo: costInfo,
       currentCredits: currentBalance.credits,
       onConfirm: () {},
-      onCharge: () {
+      onCharge: () async {
         Navigator.pop(context, false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(creditProvider.getUIString('snackbar_ad_coming_soon'))),
+        
+        final adService = AdService();
+        
+        // Check if ad is ready
+        if (!adService.isAdReady) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(creditProvider.getUIString('snackbar_ad_loading')),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          adService.loadRewardedAd();
+          return;
+        }
+        
+        // Show the ad
+        print('📱 [CaptureDetail] Showing rewarded ad...');
+        bool rewardCallbackFired = false;
+        final rewardAmount = 0.5;
+        final rewardEarned = await adService.showRewardedAd(
+          onReward: (amount) {
+            rewardCallbackFired = true;
+            print('🎁 [CaptureDetail] Reward callback called: $amount');
+          },
+          onAdDismissed: () {
+            if (!rewardCallbackFired) {
+              return;
+            }
+            navigatorKey.currentState?.push(
+              PageRouteBuilder(
+                pageBuilder: (_, __, ___) => RewardClaimScreen(
+                  rewardAmount: rewardAmount,
+                  symbol: creditProvider.getUIString('symbol'),
+                ),
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+              ),
+            );
+          },
         );
+        
+        print('📱 [CaptureDetail] Ad finished. Reward earned: $rewardEarned');
+        
+        // Check if context is still valid (user didn't navigate away)
+        if (!mounted) {
+          print('⚠️ [CaptureDetail] Context deactivated, skipping notification');
+          return;
+        }
+        
+        if (!rewardEarned) {
+          print('❌ [CaptureDetail] No reward earned, user closed ad early');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(creditProvider.getUIString('snackbar_ad_failed')),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          return;
+        }
+        
+        print('✅ [CaptureDetail] User earned reward, reward screen shown on ad dismiss');
       },
     );
 
     if (confirmed != true) {
-      return false;
-    }
-
-    final authToken = await creditProvider.deductCredits(CreditPackage.ingredientScan);
-    if (authToken == null || authToken.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(creditProvider.getUIString('snackbar_deduct_failed'))),
-      );
       return false;
     }
 
@@ -1143,12 +1496,30 @@ class _CaptureDetailScreenState extends State<CaptureDetailScreen> {
       };
     }).toList();
 
-    final candidates = await AiRecognitionService.instance.suggestMaterialCandidates(
-      query: trimmed,
-      topHits: hint,
-    );
+    List<Map<String, dynamic>> candidates;
+    try {
+      candidates = await AiRecognitionService.instance.suggestMaterialCandidates(
+        query: trimmed,
+        topHits: hint,
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('AI 분석 실패로 크레딧이 차감되지 않았습니다')),
+        );
+      }
+      return false;
+    }
 
     if (candidates.isEmpty) {
+      return false;
+    }
+
+    final authToken = await creditProvider.deductCredits(CreditPackage.ingredientScan);
+    if (authToken == null || authToken.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(creditProvider.getUIString('snackbar_deduct_failed'))),
+      );
       return false;
     }
 

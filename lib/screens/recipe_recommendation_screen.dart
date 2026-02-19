@@ -6,13 +6,16 @@ import '../config/app_strings.dart';
 import '../data/dao/capture_dao.dart';
 import '../data/services/recipe_recommendation_service.dart';
 import '../data/services/credit_service.dart';
+import '../data/services/ad_service.dart';
 import '../models/capture_record.dart';
 import '../models/recipe_recommendation.dart';
 import '../models/credit_provider.dart';
+import '../main.dart';
 import '../widgets/credit_confirm_dialog.dart';
 import '../widgets/credit_balance_widget.dart';
 import 'capture_history_screen.dart';
 import 'recipe_detail_screen.dart';
+import 'reward_claim_screen.dart';
 
 class RecipeRecommendationScreen extends StatefulWidget {
   final List<CaptureRecord>? initialRecords;
@@ -85,7 +88,7 @@ class _RecipeRecommendationScreenState
         categoryId: null,
       );
       if (!hasCache) {
-        final canProceed = await _confirmAndDeductRecipeGenerate();
+        final canProceed = await _confirmRecipeGenerate();
         if (!canProceed) {
           setState(() {
             _loading = false;
@@ -93,13 +96,25 @@ class _RecipeRecommendationScreenState
           return;
         }
       }
-      _defaultCards = await _service.recommendDefault(
+      final cards = await _service.recommendDefault(
         ingredients: _ingredients,
       );
+      if (!hasCache) {
+        final deducted = await _deductRecipeGenerateCredits();
+        if (!deducted) {
+          setState(() {
+            _error = context.read<CreditProvider>().getUIString('snackbar_deduct_failed');
+            _loading = false;
+          });
+          return;
+        }
+      }
       setState(() {
+        _defaultCards = cards;
         _loading = false;
       });
     } catch (e) {
+      debugPrint('❌ [RecipeRecommend] default load failed: $e');
       setState(() {
         _error = e.toString();
         _loading = false;
@@ -120,7 +135,7 @@ class _RecipeRecommendationScreenState
         categoryId: categoryId,
       );
       if (!hasCache) {
-        final canProceed = await _confirmAndDeductRecipeGenerate();
+        final canProceed = await _confirmRecipeGenerate();
         if (!canProceed) {
           setState(() {
             _loadingCategory = false;
@@ -133,11 +148,22 @@ class _RecipeRecommendationScreenState
         categoryId: categoryId,
         categoryLabel: categoryLabel,
       );
+      if (!hasCache) {
+        final deducted = await _deductRecipeGenerateCredits();
+        if (!deducted) {
+          setState(() {
+            _categoryError = context.read<CreditProvider>().getUIString('snackbar_deduct_failed');
+            _loadingCategory = false;
+          });
+          return;
+        }
+      }
       setState(() {
         _categoryCards[categoryId] = cards;
         _loadingCategory = false;
       });
     } catch (e) {
+      debugPrint('❌ [RecipeRecommend] category load failed: $e');
       setState(() {
         _categoryError = e.toString();
         _loadingCategory = false;
@@ -190,7 +216,7 @@ class _RecipeRecommendationScreenState
     }
   }
 
-  Future<bool> _confirmAndDeductRecipeGenerate() async {
+  Future<bool> _confirmRecipeGenerate() async {
     if (!mounted) {
       return false;
     }
@@ -214,11 +240,69 @@ class _RecipeRecommendationScreenState
       costInfo: costInfo,
       currentCredits: currentBalance.credits,
       onConfirm: () {},
-      onCharge: () {
+      onCharge: () async {
         Navigator.pop(context, false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(creditProvider.getUIString('snackbar_ad_coming_soon'))),
+        
+        final adService = AdService();
+        
+        // Check if ad is ready
+        if (!adService.isAdReady) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(creditProvider.getUIString('snackbar_ad_loading')),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          adService.loadRewardedAd();
+          return;
+        }
+        
+        // Show the ad
+        print('📱 [Recipe] Showing rewarded ad...');
+        bool rewardCallbackFired = false;
+        final rewardAmount = 0.5;
+        final rewardEarned = await adService.showRewardedAd(
+          onReward: (amount) {
+            rewardCallbackFired = true;
+            print('🎁 [Recipe] Reward callback called: $amount');
+          },
+          onAdDismissed: () {
+            if (!rewardCallbackFired) {
+              return;
+            }
+            navigatorKey.currentState?.push(
+              PageRouteBuilder(
+                pageBuilder: (_, __, ___) => RewardClaimScreen(
+                  rewardAmount: rewardAmount,
+                  symbol: creditProvider.getUIString('symbol'),
+                ),
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+              ),
+            );
+          },
         );
+        
+        print('📱 [Recipe] Ad finished. Reward earned: $rewardEarned');
+        
+        // Check if context is still valid (user didn't navigate away)
+        if (!mounted) {
+          print('⚠️ [Recipe] Context deactivated, skipping notification');
+          return;
+        }
+        
+        if (!rewardEarned) {
+          print('❌ [Recipe] No reward earned, user closed ad early');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(creditProvider.getUIString('snackbar_ad_failed')),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          return;
+        }
+        
+        print('✅ [Recipe] User earned reward, reward screen shown on ad dismiss');
       },
     );
 
@@ -226,6 +310,14 @@ class _RecipeRecommendationScreenState
       return false;
     }
 
+    return true;
+  }
+
+  Future<bool> _deductRecipeGenerateCredits() async {
+    if (!mounted) {
+      return false;
+    }
+    final creditProvider = context.read<CreditProvider>();
     final authToken = await creditProvider.deductCredits(CreditPackage.recipeGenerate);
     if (authToken == null || authToken.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -233,7 +325,6 @@ class _RecipeRecommendationScreenState
       );
       return false;
     }
-
     return true;
   }
 
@@ -374,14 +465,78 @@ class _RecipeRecommendationScreenState
                         ),
                         child: CreditBalancePanel(
                           creditProvider: sheetContext.read<CreditProvider>(),
-                          onWatchAd: () {
+                          onWatchAd: () async {
+                            final adService = AdService();
                             Navigator.pop(sheetContext);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(creditService.getUIString('snackbar_ad_coming_soon')),
-                                duration: const Duration(seconds: 2),
-                              ),
+                            await Future.delayed(const Duration(milliseconds: 100));
+                            if (!mounted) return;
+                            
+                            if (!adService.isAdReady) {
+                              print('⏳ [Screen] Ad not ready, loading...');
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(creditService.getUIString('snackbar_ad_loading')),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                              adService.loadRewardedAd();
+                              
+                              // Wait for ad to be ready (poll every 500ms, max 30 seconds)
+                              int attempts = 0;
+                              while (!adService.isAdReady && attempts < 60) {
+                                await Future.delayed(const Duration(milliseconds: 500));
+                                attempts++;
+                                print('⏳ [Screen] Waiting for ad... attempts: $attempts');
+                              }
+                              
+                              if (!adService.isAdReady) {
+                                print('❌ [Screen] Ad failed to load after 30 seconds');
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(creditService.getUIString('snackbar_ad_failed')),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                                return;
+                              }
+                              print('✅ [Screen] Ad ready after loading');
+                            }
+                            
+                            bool rewardCallbackFired = false;
+                            final rewardAmount = 0.5;
+                            final rewardEarned = await adService.showRewardedAd(
+                              onReward: (amount) {
+                                rewardCallbackFired = true;
+                              },
+                              onAdDismissed: () {
+                                if (!rewardCallbackFired) {
+                                  return;
+                                }
+                                navigatorKey.currentState?.push(
+                                  PageRouteBuilder(
+                                    pageBuilder: (_, __, ___) => RewardClaimScreen(
+                                      rewardAmount: rewardAmount,
+                                      symbol: creditService.getUIString('symbol'),
+                                    ),
+                                    transitionDuration: Duration.zero,
+                                    reverseTransitionDuration: Duration.zero,
+                                  ),
+                                );
+                              },
                             );
+                            
+                            if (!rewardEarned) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(creditService.getUIString('snackbar_ad_failed')),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                              return;
+                            }
+                            print('✅ [Screen] User earned reward, reward screen shown on ad dismiss');
                           },
                           onPurchase: () {
                             Navigator.pop(sheetContext);

@@ -6,8 +6,12 @@ import 'package:provider/provider.dart';
 import 'config/app_config.dart';
 import 'config/app_strings.dart';
 import 'data/db/app_database.dart';
+import 'data/services/ad_service.dart';
 import 'models/credit_provider.dart';
 import 'screens/split_camera_screen.dart';
+
+// Global navigator key for context-free navigation after Bottom Sheet closes
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 late List<CameraDescription> cameras;
 
@@ -25,6 +29,14 @@ Future<void> main() async {
     AppDatabase.instance.init(),
   ]);
 
+  // 광고 SDK 초기화
+  debugPrint('Initializing Mobile Ads SDK...');
+  await AdService.initialize();
+  
+  // 광고 미리 로드
+  final adService = AdService();
+  adService.loadRewardedAd();
+  debugPrint('Rewarded ad preloading started');
   
   // 카메라 권한 요청
   debugPrint(AppStrings.instance.debugCameraPermissionRequesting);
@@ -68,6 +80,7 @@ class MyApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         title: AppStrings.instance.appTitle,
         debugShowCheckedModeBanner: false,
         theme: ThemeData(

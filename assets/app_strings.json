@@ -101,5 +101,8 @@
   "debug_camera_permission_permanently_denied": "❌ 카메라 권한 영구 거부됨(설정에서 수동 활성화 필요)",
   "debug_camera_checking": "✅ 사용 가능한 카메라 확인 중..",
   "debug_camera_count": "✅ 사용 가능한 카메라 {count}개",
-  "debug_credit_initializing": "✅ Credit 서비스 초기화"
+  "debug_credit_initializing": "✅ Credit 서비스 초기화",
+  "snackbar_ad_loading": "광고를 불러오는 중입니다. 잠시만 기다려주세요...",
+  "snackbar_ad_reward_earned": "광고 시청 완료! 크레딧을 받았습니다:",
+  "snackbar_ad_failed": "광고를 표시할 수 없습니다. 나중에 다시 시도해주세요."
 }

@@ -16,8 +16,6 @@ class CreditBalanceButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final creditService = CreditService();
-    
     return GestureDetector(
       onTap: onPressed,
       child: Container(
@@ -73,7 +71,7 @@ class CreditBalanceButton extends StatelessWidget {
 }
 
 /// Panel to show credit balance and options
-class CreditBalancePanel extends StatelessWidget {
+class CreditBalancePanel extends StatefulWidget {
   final CreditProvider creditProvider;
   final VoidCallback onWatchAd;
   final VoidCallback onPurchase;
@@ -86,8 +84,59 @@ class CreditBalancePanel extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<CreditBalancePanel> createState() => _CreditBalancePanelState();
+}
+
+class _CreditBalancePanelState extends State<CreditBalancePanel> {
+  static bool _developerCreditUnlocked = false;
+  int _unlockStep = 0;
+  int _usageTapCount = 0;
+  int _chargeTapCount = 0;
+
+  void _onUsageSectionTap() {
+    if (_developerCreditUnlocked) {
+      return;
+    }
+    if (_unlockStep == 0) {
+      _usageTapCount++;
+      if (_usageTapCount >= 5) {
+        _unlockStep = 1;
+      }
+    } else if (_unlockStep == 2) {
+      _usageTapCount++;
+      if (_chargeTapCount >= 1) {
+        _unlockDeveloperCreditsIfNeeded();
+      }
+      return;
+    }
+    _unlockDeveloperCreditsIfNeeded();
+  }
+
+  void _onChargeSectionTap() {
+    if (_developerCreditUnlocked) {
+      return;
+    }
+    if (_unlockStep == 1) {
+      _chargeTapCount++;
+      if (_chargeTapCount >= 1) {
+        _unlockStep = 2;
+      }
+    }
+    _unlockDeveloperCreditsIfNeeded();
+  }
+
+  void _unlockDeveloperCreditsIfNeeded() {
+    if (_unlockStep == 2 && _usageTapCount >= 6 && _chargeTapCount >= 1) {
+      setState(() {
+        _developerCreditUnlocked = true;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final creditService = CreditService();
+    final creditProvider = context.watch<CreditProvider>();
     
     return Container(
       padding: const EdgeInsets.all(20),
@@ -192,60 +241,68 @@ class CreditBalancePanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Usage info
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            creditService.getUIString('usage_section_title'),
-                            style: const TextStyle(
-                              color: Color(0xFFB0B0B0),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _onUsageSectionTap,
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              creditService.getUIString('usage_section_title'),
+                              style: const TextStyle(
+                                color: Color(0xFFB0B0B0),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            creditService.getUIString('usage_description'),
-                            style: const TextStyle(
-                              color: Color(0xFF909090),
-                              fontSize: 11,
-                              height: 1.5,
+                            const SizedBox(height: 8),
+                            Text(
+                              creditService.getUIString('usage_description'),
+                              style: const TextStyle(
+                                color: Color(0xFF909090),
+                                fontSize: 11,
+                                height: 1.5,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
 
                     // Pricing info
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            creditService.getUIString('charge_section_title'),
-                            style: const TextStyle(
-                              color: Color(0xFFB0B0B0),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _onChargeSectionTap,
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              creditService.getUIString('charge_section_title'),
+                              style: const TextStyle(
+                                color: Color(0xFFB0B0B0),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          _buildPricingRow(creditService.getUIString('ad_watch_option'), '${creditService.getUIString('symbol')} 1'),
-                          _buildPricingRow('AI 셸프에게 커피 한 잔 ☕', '\$3.99 = ${creditService.getUIString('symbol')} 100'),
-                          _buildPricingRow('AI 셸프에게 커피 두 잔 ☕☕', '\$7.99 = ${creditService.getUIString('symbol')} 250'),
-                        ],
+                            const SizedBox(height: 8),
+                            _buildPricingRow(creditService.getUIString('ad_watch_option'), '${creditService.getUIString('symbol')} 1'),
+                            _buildPricingRow('AI 셸프에게 커피 한 잔 ☕', '\$3.99 = ${creditService.getUIString('symbol')} 100'),
+                            _buildPricingRow('AI 셸프에게 커피 두 잔 ☕☕', '\$7.99 = ${creditService.getUIString('symbol')} 250'),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -261,6 +318,39 @@ class CreditBalancePanel extends StatelessWidget {
             ),
           const SizedBox(height: 20),
 
+          if (_developerCreditUnlocked) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () async {
+                  final ok = await creditProvider.addCreditsForDebug(50);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          ok
+                              ? '개발자 충전: +50.0'
+                              : '개발자 충전에 실패했습니다',
+                        ),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Colors.orange.withValues(alpha: 0.6)),
+                  foregroundColor: Colors.orangeAccent,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                child: const Text(
+                  '개발자용 크레딧 +50',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+
           // Action buttons (fixed at bottom)
           if (creditProvider.balance != null)
             Row(
@@ -269,7 +359,7 @@ class CreditBalancePanel extends StatelessWidget {
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: onWatchAd,
+                      onTap: widget.onWatchAd,
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -314,7 +404,7 @@ class CreditBalancePanel extends StatelessWidget {
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
-                      onTap: onPurchase,
+                      onTap: widget.onPurchase,
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),

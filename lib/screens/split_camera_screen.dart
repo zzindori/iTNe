@@ -9,11 +9,14 @@ import '../config/app_strings.dart';
 import '../data/dao/capture_dao.dart';
 import '../data/services/ai_recognition_service.dart';
 import '../data/services/credit_service.dart';
+import '../data/services/ad_service.dart';
 import '../models/captured_photo.dart';
 import '../models/capture_record.dart';
 import '../models/credit_provider.dart';
+import '../main.dart';
 import 'capture_history_screen.dart';
 import 'recipe_recommendation_screen.dart';
+import 'reward_claim_screen.dart';
 import '../widgets/camera_preview_section.dart';
 import '../widgets/photo_gallery_section.dart';
 import '../widgets/credit_balance_widget.dart';
@@ -354,98 +357,6 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
     }
   }
 
-  void _showAdRewardSheet(BuildContext context, CreditProvider provider) {
-    final creditService = CreditService();
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF2A2A2A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                creditService.getUIString('button_watch_ad'),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.withValues(alpha: 0.3), width: 1),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      creditService.getUIString('watch_ad_suggestion'),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '+${creditService.getUIString('symbol')} ${provider.getAdRewardCredits().toStringAsFixed(1)}',
-                      style: const TextStyle(
-                        color: Colors.blue,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    // TODO: Show rewarded ad
-                    // On ad completion:
-                    // provider.addCreditsFromReward(provider.getAdRewardCredits());
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(creditService.getUIString('snackbar_ad_coming_soon')),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text(
-                    creditService.getUIString('button_watch_ad'),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-      ),
-    );
-  }
-
   Future<void> _setZoom(double value) async {
     if (_isDisposingController || _controller == null || !_controller!.value.isInitialized) {
       return;
@@ -578,10 +489,36 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
 
       final canProceed = await _confirmAndDeductIngredientScan();
       if (canProceed) {
-        AiRecognitionService.instance.enqueueRecognition(
-          captureId: photo.id,
-          filePath: croppedFile.path,
-        );
+        AiRecognitionService.instance
+            .enqueueRecognitionAndWait(
+              captureId: photo.id,
+              filePath: croppedFile.path,
+            )
+            .then((success) async {
+              if (!mounted) {
+                return;
+              }
+              if (!success) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('AI 분석 실패로 크레딧이 차감되지 않았습니다')),
+                );
+                return;
+              }
+
+              final creditProvider = context.read<CreditProvider>();
+              final authToken =
+                  await creditProvider.deductCredits(CreditPackage.ingredientScan);
+              if (!mounted) {
+                return;
+              }
+              if (authToken == null || authToken.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(creditProvider.getUIString('snackbar_deduct_failed')),
+                  ),
+                );
+              }
+            });
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('AI 분석건너�니')),
@@ -688,24 +625,73 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
       costInfo: costInfo,
       currentCredits: currentBalance.credits,
       onConfirm: () {},
-      onCharge: () {
+      onCharge: () async {
         Navigator.pop(context, false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(creditProvider.getUIString('snackbar_ad_coming_soon'))),
+        
+        final adService = AdService();
+        
+        // Check if ad is ready
+        if (!adService.isAdReady) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(creditProvider.getUIString('snackbar_ad_loading')),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          adService.loadRewardedAd();
+          return;
+        }
+        
+        // Show the ad
+        print('📱 [Camera] Showing rewarded ad...');
+        bool rewardCallbackFired = false;
+        final rewardAmount = 0.5;
+        final rewardEarned = await adService.showRewardedAd(
+          onReward: (amount) {
+            rewardCallbackFired = true;
+            print('🎁 [Camera] Reward callback called: $amount');
+          },
+          onAdDismissed: () {
+            if (!rewardCallbackFired) {
+              return;
+            }
+            navigatorKey.currentState?.push(
+              PageRouteBuilder(
+                pageBuilder: (_, __, ___) => RewardClaimScreen(
+                  rewardAmount: rewardAmount,
+                  symbol: creditProvider.getUIString('symbol'),
+                ),
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+              ),
+            );
+          },
         );
+        
+        print('📱 [Camera] Ad finished. Reward earned: $rewardEarned');
+        
+        // Check if context is still valid (user didn't navigate away)
+        if (!mounted) {
+          print('⚠️ [Camera] Context deactivated, skipping notification');
+          return;
+        }
+        
+        if (!rewardEarned) {
+          print('❌ [Camera] No reward earned, user closed ad early');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(creditProvider.getUIString('snackbar_ad_failed')),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          return;
+        }
+        
+        print('✅ [Camera] User earned reward, reward screen shown on ad dismiss');
       },
     );
 
     if (confirmed != true) {
-      return false;
-    }
-
-    final authToken =
-        await creditProvider.deductCredits(CreditPackage.ingredientScan);
-    if (authToken == null || authToken.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(creditProvider.getUIString('snackbar_deduct_failed'))),
-      );
       return false;
     }
 
@@ -745,6 +731,25 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
       return;
     }
 
+    bool deleted = false;
+    try {
+      deleted = await _captureDao.deleteCapture(photo.id);
+      if (!deleted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('삭제에 실패했습니다. 다시 시도해 주세요.')),
+        );
+        _deletePending = false;
+        return;
+      }
+    } catch (e) {
+      debugPrint('DB �� �류: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('삭제에 실패했습니다. 다시 시도해 주세요.')),
+      );
+      _deletePending = false;
+      return;
+    }
+
     _capturedPhotos.removeAt(index);
     setState(() {});
 
@@ -754,12 +759,6 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
       }
     } catch (e) {
       debugPrint('�일 �� �류: $e');
-    }
-
-    try {
-      await _captureDao.deleteCapture(photo.id);
-    } catch (e) {
-      debugPrint('DB �� �류: $e');
     }
 
     if (AppConfig.instance.hapticFeedback) {
@@ -902,6 +901,7 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
               key: _galleryKey,
               photos: _capturedPhotos,
               onDeleteCurrent: (photo) { _deleteCurrentPhoto(photo); },
+              onRefreshRequested: _loadCapturedHistory,
             ),
           ),
         ],
@@ -917,12 +917,16 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
                 children: [
                   FloatingActionButton.small(
                     heroTag: 'history_fab',
-                    onPressed: () {
-                      Navigator.of(context).push(
+                    onPressed: () async {
+                      await Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => CaptureHistoryScreen(),
                         ),
                       );
+                      if (!mounted) {
+                        return;
+                      }
+                      await _loadCapturedHistory();
                     },
                     backgroundColor: Colors.black.withValues(alpha: 0.6),
                     child: const Icon(Icons.photo_library, color: Colors.white),
@@ -978,9 +982,85 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
                               ),
                               child: CreditBalancePanel(
                                 creditProvider: sheetContext.read<CreditProvider>(),
-                                onWatchAd: () {
+                                onWatchAd: () async {
+                                  final adService = AdService();
+                                  final creditService = CreditService();
+                                  
                                   Navigator.pop(sheetContext);
-                                  _showAdRewardSheet(sheetContext, sheetContext.read<CreditProvider>());
+                                  
+                                  // Wait for bottom sheet context to dispose before using outer context
+                                  await Future.delayed(const Duration(milliseconds: 100));
+                                  
+                                  if (!mounted) return;
+                                  
+                                  // Check if ad is ready
+                                  if (!adService.isAdReady) {
+                                    print('⏳ [Screen] Ad not ready, loading...');
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(creditService.getUIString('snackbar_ad_loading')),
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                    adService.loadRewardedAd();
+                                    
+                                    // Wait for ad to be ready (poll every 500ms, max 30 seconds)
+                                    int attempts = 0;
+                                    while (!adService.isAdReady && attempts < 60) {
+                                      await Future.delayed(const Duration(milliseconds: 500));
+                                      attempts++;
+                                      print('⏳ [Screen] Waiting for ad... attempts: $attempts');
+                                    }
+                                    
+                                    if (!adService.isAdReady) {
+                                      print('❌ [Screen] Ad failed to load after 30 seconds');
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(creditService.getUIString('snackbar_ad_failed')),
+                                            duration: const Duration(seconds: 2),
+                                          ),
+                                        );
+                                      }
+                                      return;
+                                    }
+                                    print('✅ [Screen] Ad ready after loading');
+                                  }
+                                  
+                                  // Show the ad
+                                  bool rewardCallbackFired = false;
+                                  final rewardAmount = 0.5;
+                                  final rewardEarned = await adService.showRewardedAd(
+                                    onReward: (amount) {
+                                      rewardCallbackFired = true;
+                                    },
+                                    onAdDismissed: () {
+                                      if (!rewardCallbackFired) {
+                                        return;
+                                      }
+                                      navigatorKey.currentState?.push(
+                                        PageRouteBuilder(
+                                          pageBuilder: (_, __, ___) => RewardClaimScreen(
+                                            rewardAmount: rewardAmount,
+                                            symbol: creditService.getUIString('symbol'),
+                                          ),
+                                          transitionDuration: Duration.zero,
+                                          reverseTransitionDuration: Duration.zero,
+                                        ),
+                                      );
+                                    },
+                                  );
+                                  
+                                  if (!rewardEarned) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(creditService.getUIString('snackbar_ad_failed')),
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  print('✅ [Screen] User earned reward, reward screen shown on ad dismiss');
                                 },
                                 onPurchase: () {
                                   Navigator.pop(sheetContext);

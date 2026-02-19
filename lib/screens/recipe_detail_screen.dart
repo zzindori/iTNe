@@ -9,12 +9,15 @@ import '../data/dao/capture_dao.dart';
 import '../data/dao/ingredient_substitution_dao.dart';
 import '../data/services/recipe_recommendation_service.dart';
 import '../data/services/credit_service.dart';
+import '../data/services/ad_service.dart';
 import '../models/recipe_recommendation.dart';
 import '../models/capture_record.dart';
 import '../models/credit_provider.dart';
+import '../main.dart';
 import '../widgets/credit_confirm_dialog.dart';
 import '../widgets/credit_balance_widget.dart';
 import 'capture_detail_screen.dart';
+import 'reward_claim_screen.dart';
 
 class RecipeDetailScreen extends StatefulWidget {
   final RecipeCard card;
@@ -41,7 +44,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
   final CaptureDao _captureDao = CaptureDao();
   final IngredientSubstitutionDao _substitutionDao =
       IngredientSubstitutionDao();
-  late final Future<List<CaptureRecord>> _capturesFuture;
+  late Future<List<CaptureRecord>> _capturesFuture;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   CaptureRecord? _drawerRecord;
   String? _linkedIngredientKey;
@@ -51,6 +54,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
   String? _missingIngredient;
   List<CaptureRecord> _missingSimilar = const [];
   Future<List<String>>? _missingAiFuture;
+  bool _missingAiHasCache = false;
   RecipeDetail? _currentDetail;
   Map<String, String> _ingredientSubstitutions = {};
   Map<String, String> _ingredientOriginals = {};
@@ -131,12 +135,67 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
                           ),
                           child: CreditBalancePanel(
                             creditProvider: sheetContext.read<CreditProvider>(),
-                            onWatchAd: () {
+                            onWatchAd: () async {
+                              final adService = AdService();
                               Navigator.pop(sheetContext);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(creditService.getUIString('snackbar_ad_coming_soon')),
-                                  duration: const Duration(seconds: 2),
+                              await Future.delayed(const Duration(milliseconds: 100));
+                              if (!mounted) return;
+                              
+                              if (!adService.isAdReady) {
+                                print('⏳ [Screen] Ad not ready, loading...');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(creditService.getUIString('snackbar_ad_loading')),
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                                adService.loadRewardedAd();
+                                
+                                // Wait for ad to be ready (poll every 500ms, max 30 seconds)
+                                int attempts = 0;
+                                while (!adService.isAdReady && attempts < 60) {
+                                  await Future.delayed(const Duration(milliseconds: 500));
+                                  attempts++;
+                                  print('⏳ [Screen] Waiting for ad... attempts: $attempts');
+                                }
+                                
+                                if (!adService.isAdReady) {
+                                  print('❌ [Screen] Ad failed to load after 30 seconds');
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(creditService.getUIString('snackbar_ad_failed')),
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+                                print('✅ [Screen] Ad ready after loading');
+                              }
+                              
+                              final rewardEarned = await adService.showRewardedAd(
+                                onReward: (amount) {},
+                              );
+                              
+                              if (!rewardEarned) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(creditService.getUIString('snackbar_ad_failed')),
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                                return;
+                              }
+                              
+                              final rewardAmount = 0.5;
+                              navigatorKey.currentState?.push(
+                                MaterialPageRoute(
+                                  builder: (_) => RewardClaimScreen(
+                                    rewardAmount: rewardAmount,
+                                    symbol: creditService.getUIString('symbol'),
+                                  ),
+                                  fullscreenDialog: true,
                                 ),
                               );
                             },
@@ -275,12 +334,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
       }
     }
 
-    final future = RecipeRecommendationService.instance.fetchRecipeDetail(
-      recipeId: widget.card.id,
-      recipeTitle: widget.card.title,
-      ingredients: widget.ingredients,
+    final future = _fetchRecipeDetailWithCharge(
+      shouldDeduct: !hasCache,
       forceRefresh: forceRefresh,
-      categoryLabel: widget.categoryLabel,
     );
     if (!mounted) {
       _detailFuture = future;
@@ -291,8 +347,22 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
     });
   }
 
-  void _openIngredientDrawerForItem(String ingredient, CaptureRecord record) {
+  Future<void> _openIngredientDrawerForItem(
+    String ingredient,
+    CaptureRecord record,
+  ) async {
+    if (_isExpiredForDiscardWarning(record)) {
+      final shouldDelete = await _showIngredientExpiredWarningDialog(record);
+      if (shouldDelete == true) {
+        await _deleteCaptureFromRecipeDetail(record);
+      }
+      return;
+    }
+
     final key = _normalizeIngredientName(ingredient);
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _drawerRecord = record;
       _linkedIngredientKey = key.isEmpty? null : key;
@@ -315,7 +385,215 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
     Navigator.of(context).maybePop();
   }
 
-  // ignore: unused_element
+  bool _isExpiredForDiscardWarning(CaptureRecord record) {
+    final shelfLifeDays = record.shelfLifeDays;
+    if (shelfLifeDays == null || shelfLifeDays <= 0) {
+      return false;
+    }
+    final ageDays = DateTime.now().difference(record.createdAt).inDays;
+    return ageDays > shelfLifeDays;
+  }
+
+  Future<bool?> _showIngredientExpiredWarningDialog(CaptureRecord record) async {
+    final countdown = record.shelfLifeCountdownLabel() ?? 'D+1';
+
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return Material(
+          type: MaterialType.transparency,
+          child: Center(
+            child: Container(
+              width: 390,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFC0C0C0),
+                border: Border.all(color: Colors.black, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 10,
+                    offset: const Offset(3, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF0A3AA2), Color(0xFF4E79D8)],
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Windows',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFC0C0C0),
+                            border: Border.all(color: Colors.black, width: 1),
+                          ),
+                          child: const Icon(Icons.close, size: 11, color: Colors.black),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                    padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFC0C0C0),
+                      border: Border.all(color: const Color(0xFF7A7A7A), width: 1),
+                    ),
+                    child: Column(
+                      children: [
+                        const Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.warning_amber_rounded,
+                              color: Color(0xFFCC9A00),
+                              size: 34,
+                            ),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '유통기한이 지난 식재료입니다.\n삭제(폐기)를 권장합니다.',
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 13,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '현재 상태: $countdown',
+                            style: const TextStyle(
+                              color: Colors.black87,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 90,
+                          height: 30,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              if (dialogContext.mounted) {
+                                Navigator.of(dialogContext).pop(false);
+                              }
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.black,
+                              backgroundColor: const Color(0xFFD9D9D9),
+                              side: const BorderSide(color: Colors.black, width: 1),
+                              shape: const RoundedRectangleBorder(),
+                              padding: EdgeInsets.zero,
+                            ),
+                            child: const Text('유지'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 90,
+                          height: 30,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              if (dialogContext.mounted) {
+                                Navigator.of(dialogContext).pop(true);
+                              }
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.black,
+                              backgroundColor: const Color(0xFFD9D9D9),
+                              side: const BorderSide(color: Colors.black, width: 1),
+                              shape: const RoundedRectangleBorder(),
+                              padding: EdgeInsets.zero,
+                            ),
+                            child: const Text('삭제'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteCaptureFromRecipeDetail(CaptureRecord record) async {
+    bool deleted = false;
+
+    try {
+      final file = File(record.filePath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (_) {}
+
+    try {
+      deleted = await _captureDao.deleteCapture(record.id);
+    } catch (_) {
+      deleted = false;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    if (!deleted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('삭제에 실패했습니다. 다시 시도해 주세요.')),
+      );
+      return;
+    }
+
+    setState(() {
+      if (_drawerRecord?.id == record.id) {
+        _drawerRecord = null;
+        _linkedIngredientKey = null;
+        _linkedIngredientLabel = null;
+      }
+      _capturesFuture = _captureDao.getAllCaptures();
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('만료 식재료를 삭제했습니다.')),
+    );
+  }
+
   Future<void> _openMissingIngredientDrawer(
     String ingredient,
     RecipeDetail detail,
@@ -330,13 +608,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
       missingIngredient: ingredient,
     );
 
-    if (!hasCache) {
-      final canProceed = await _confirmAndDeductRecipeGenerate();
-      if (!canProceed || !mounted) {
-        return;
-      }
-    }
-
     if (!mounted) {
       return;
     }
@@ -344,8 +615,54 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
     setState(() {
       _missingIngredient = ingredient;
       _missingSimilar = _findSimilarCaptures(ingredient, captures);
-      _missingAiFuture = RecipeRecommendationService.instance
-          .suggestIngredientSubstitutes(
+      _missingAiHasCache = hasCache;
+      _missingAiFuture = hasCache
+          ? _suggestSubstitutesWithCharge(
+              shouldDeduct: false,
+              recipeId: recipeId,
+              recipeTitle: detail.title,
+              ingredients: detail.ingredients,
+              summary: detail.summary,
+              steps: detail.steps,
+              missingIngredient: ingredient,
+            )
+          : null;
+    });
+    _scaffoldKey.currentState?.openDrawer();
+  }
+
+  Future<void> _requestMissingIngredientSuggestions(RecipeDetail detail) async {
+    final ingredient = _missingIngredient;
+    if (ingredient == null || ingredient.isEmpty) {
+      return;
+    }
+
+    final shouldDeduct = !_missingAiHasCache;
+    if (shouldDeduct) {
+      if (!mounted) {
+        return;
+      }
+      final creditProvider = context.read<CreditProvider>();
+      final balance = creditProvider.balance;
+      final cost = creditProvider.getCostInfo(CreditPackage.recipeGenerate).costCredits;
+      if (balance == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(creditProvider.getUIString('snackbar_loading_credit'))),
+        );
+        return;
+      }
+      if (balance.credits < cost) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(creditProvider.getUIString('snackbar_deduct_failed'))),
+        );
+        return;
+      }
+    }
+
+    final recipeId = detail.id.isNotEmpty ? detail.id : widget.card.id;
+    setState(() {
+      _missingAiFuture = _suggestSubstitutesWithCharge(
+        shouldDeduct: shouldDeduct,
         recipeId: recipeId,
         recipeTitle: detail.title,
         ingredients: detail.ingredients,
@@ -353,8 +670,59 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
         steps: detail.steps,
         missingIngredient: ingredient,
       );
+      _missingAiHasCache = true;
     });
-    _scaffoldKey.currentState?.openDrawer();
+  }
+
+  Future<RecipeDetail> _fetchRecipeDetailWithCharge({
+    required bool shouldDeduct,
+    required bool forceRefresh,
+  }) async {
+    final detail = await RecipeRecommendationService.instance.fetchRecipeDetail(
+      recipeId: widget.card.id,
+      recipeTitle: widget.card.title,
+      ingredients: widget.ingredients,
+      forceRefresh: forceRefresh,
+      categoryLabel: widget.categoryLabel,
+    );
+
+    if (shouldDeduct) {
+      final deducted = await _deductRecipeGenerateCredits();
+      if (!deducted) {
+        throw StateError('credit_deduct_failed');
+      }
+    }
+
+    return detail;
+  }
+
+  Future<List<String>> _suggestSubstitutesWithCharge({
+    required bool shouldDeduct,
+    required String recipeId,
+    required String recipeTitle,
+    required List<String> ingredients,
+    required String summary,
+    required List<String> steps,
+    required String missingIngredient,
+  }) async {
+    final substitutes = await RecipeRecommendationService.instance
+        .suggestIngredientSubstitutes(
+      recipeId: recipeId,
+      recipeTitle: recipeTitle,
+      ingredients: ingredients,
+      summary: summary,
+      steps: steps,
+      missingIngredient: missingIngredient,
+    );
+
+    if (shouldDeduct) {
+      final deducted = await _deductRecipeGenerateCredits();
+      if (!deducted) {
+        throw StateError('credit_deduct_failed');
+      }
+    }
+
+    return substitutes;
   }
 
   Future<bool> _confirmAndDeductRecipeGenerate({
@@ -383,11 +751,69 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
       costInfo: costInfo,
       currentCredits: currentBalance.credits,
       onConfirm: () {},
-      onCharge: () {
+      onCharge: () async {
         Navigator.pop(context, false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(creditProvider.getUIString('snackbar_ad_coming_soon'))),
+        
+        final adService = AdService();
+        
+        // Check if ad is ready
+        if (!adService.isAdReady) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(creditProvider.getUIString('snackbar_ad_loading')),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          adService.loadRewardedAd();
+          return;
+        }
+        
+        // Show the ad
+        print('📱 [RecipeDetail] Showing rewarded ad...');
+        bool rewardCallbackFired = false;
+        final rewardAmount = 0.5;
+        final rewardEarned = await adService.showRewardedAd(
+          onReward: (amount) {
+            rewardCallbackFired = true;
+            print('🎁 [RecipeDetail] Reward callback called: $amount');
+          },
+          onAdDismissed: () {
+            if (!rewardCallbackFired) {
+              return;
+            }
+            navigatorKey.currentState?.push(
+              PageRouteBuilder(
+                pageBuilder: (_, __, ___) => RewardClaimScreen(
+                  rewardAmount: rewardAmount,
+                  symbol: creditProvider.getUIString('symbol'),
+                ),
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+              ),
+            );
+          },
         );
+        
+        print('📱 [RecipeDetail] Ad finished. Reward earned: $rewardEarned');
+        
+        // Check if context is still valid (user didn't navigate away)
+        if (!mounted) {
+          print('⚠️ [RecipeDetail] Context deactivated, skipping notification');
+          return;
+        }
+        
+        if (!rewardEarned) {
+          print('❌ [RecipeDetail] No reward earned, user closed ad early');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(creditProvider.getUIString('snackbar_ad_failed')),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+          return;
+        }
+        
+        print('✅ [RecipeDetail] User earned reward, reward screen shown on ad dismiss');
       },
     );
 
@@ -398,15 +824,23 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
       return false;
     }
 
-    final authToken =
-        await creditProvider.deductCredits(CreditPackage.recipeGenerate);
-    if (authToken == null || authToken.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(creditProvider.getUIString('snackbar_deduct_failed'))),
-      );
+    return true;
+  }
+
+  Future<bool> _deductRecipeGenerateCredits() async {
+    if (!mounted) {
       return false;
     }
-
+    final creditProvider = context.read<CreditProvider>();
+    final authToken = await creditProvider.deductCredits(CreditPackage.recipeGenerate);
+    if (authToken == null || authToken.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(creditProvider.getUIString('snackbar_deduct_failed'))),
+        );
+      }
+      return false;
+    }
     return true;
   }
 
@@ -552,6 +986,8 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
       return;
     }
 
+    bool shouldDeductImage = false;
+
     // 크레딧 비용 확인
     if (mounted && context.mounted) {
       final creditProvider = context.read<CreditProvider>();
@@ -571,27 +1007,76 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
         costInfo: costInfo,
         currentCredits: currentBalance.credits,
         onConfirm: () {},
-        onCharge: () {
+        onCharge: () async {
           Navigator.pop(context, false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(creditProvider.getUIString('snackbar_ad_coming_soon'))),
+          
+          final adService = AdService();
+          
+          // Check if ad is ready
+          if (!adService.isAdReady) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(creditProvider.getUIString('snackbar_ad_loading')),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+            adService.loadRewardedAd();
+            return;
+          }
+          
+          // Show the ad
+          print('📱 [RecipeImage] Showing rewarded ad...');
+          bool rewardCallbackFired = false;
+          final rewardAmount = 0.5;
+          final rewardEarned = await adService.showRewardedAd(
+            onReward: (amount) {
+              rewardCallbackFired = true;
+              print('🎁 [RecipeImage] Reward callback called: $amount');
+            },
+            onAdDismissed: () {
+              if (!rewardCallbackFired) {
+                return;
+              }
+              navigatorKey.currentState?.push(
+                PageRouteBuilder(
+                  pageBuilder: (_, __, ___) => RewardClaimScreen(
+                    rewardAmount: rewardAmount,
+                    symbol: creditProvider.getUIString('symbol'),
+                  ),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
+            },
           );
+          
+          print('📱 [RecipeImage] Ad finished. Reward earned: $rewardEarned');
+          
+          // Check if context is still valid (user didn't navigate away)
+          if (!mounted) {
+            print('⚠️ [RecipeImage] Context deactivated, skipping notification');
+            return;
+          }
+          
+          if (!rewardEarned) {
+            print('❌ [RecipeImage] No reward earned, user closed ad early');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(creditProvider.getUIString('snackbar_ad_failed')),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+            return;
+          }
+          
+          print('✅ [RecipeImage] User earned reward, reward screen shown on ad dismiss');
         },
       );
 
       if (confirmed != true) {
         return;
       }
-
-      // 크레딧 차감
-      final authToken =
-          await creditProvider.deductCredits(CreditPackage.imageGenerate);
-      if (authToken == null || authToken.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(creditProvider.getUIString('snackbar_deduct_failed'))),
-        );
-        return;
-      }
+      shouldDeductImage = true;
     }
 
     setState(() {
@@ -622,6 +1107,21 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
         SnackBar(content: Text(strings.recipeDetailImageGenerateFailed)),
       );
       return;
+    }
+
+    if (shouldDeductImage) {
+      final creditProvider = context.read<CreditProvider>();
+      final authToken = await creditProvider.deductCredits(CreditPackage.imageGenerate);
+      if (authToken == null || authToken.isEmpty) {
+        setState(() {
+          _isGeneratingImage = false;
+          _generateErrorMessage = creditProvider.getUIString('snackbar_deduct_failed');
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(creditProvider.getUIString('snackbar_deduct_failed'))),
+        );
+        return;
+      }
     }
 
     final imageProvider = FileImage(File(path));
@@ -931,7 +1431,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
                               isUnlinked? null : _findCaptureForIngredient(item, captures);
                           return _buildIngredientRow(
                             item,
-                            match!,
+                            match,
                             detail,
                             captures,
                           );
@@ -1215,7 +1715,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
 
   Widget _buildIngredientRow(
     String item,
-    CaptureRecord match,
+    CaptureRecord? match,
     RecipeDetail detail,
     List<CaptureRecord> captures,
   ) {
@@ -1229,8 +1729,12 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
           border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
         ),
         child: InkWell(
-          onTap: () {
-            _openIngredientDrawerForItem(item, match);
+          onTap: () async {
+            if (match != null) {
+              await _openIngredientDrawerForItem(item, match);
+              return;
+            }
+            await _openMissingIngredientDrawer(item, detail, captures);
           },
           borderRadius: BorderRadius.circular(10),
           child: Row(
@@ -1246,7 +1750,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
                   ),
                 ),
               ),
-              ...[
+              if (match != null) ...[
                 const SizedBox(width: 8),
                 _buildIngredientThumbnail(match),
               ],
@@ -1324,15 +1828,26 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
                       const SizedBox(width: 8),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () {
+                          onPressed: () async {
                             Navigator.of(context).maybePop();
-                            Future.microtask(() {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => CaptureDetailScreen(record: record),
-                                ),
-                              );
-                            });
+                            final result = await Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => CaptureDetailScreen(record: record),
+                              ),
+                            );
+                            if (!mounted) {
+                              return;
+                            }
+                            if (result is Map && result['deletedId'] != null) {
+                              setState(() {
+                                _capturesFuture = _captureDao.getAllCaptures();
+                                if (_drawerRecord?.id == result['deletedId']) {
+                                  _drawerRecord = null;
+                                  _linkedIngredientKey = null;
+                                  _linkedIngredientLabel = null;
+                                }
+                              });
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF2E5E3F),
@@ -1362,6 +1877,9 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
 
   Widget _buildMissingIngredientDrawer() {
     final detail = _currentDetail;
+    final creditProvider = context.read<CreditProvider>();
+    final creditService = CreditService();
+    final recipeCost = creditProvider.getCostInfo(CreditPackage.recipeGenerate).costCredits;
     final width = (MediaQuery.of(context).size.width * 0.85).clamp(260, 380);
     return Drawer(
       child: SafeArea(
@@ -1444,11 +1962,37 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
                                 ),
                               ),
                               const SizedBox(height: 8),
+                              if (!_missingAiHasCache) ...[
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton(
+                                    onPressed: () => _requestMissingIngredientSuggestions(detail),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: const Color(0xFF2E5E3F),
+                                      side: const BorderSide(color: Color(0xFF2E5E3F), width: 1),
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'AI 추천 받기 (${creditService.getUIString('symbol')} ${recipeCost.toStringAsFixed(1)} 차감)',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                              ],
                               if (_missingAiFuture == null)
-                                const Text(
-                                  '추천 준비 중입니다.',
-                                  style:
-                                      TextStyle(color: Color(0xFF7A8F82), fontSize: 12),
+                                Text(
+                                  _missingAiHasCache
+                                      ? '저장된 추천을 자동으로 불러오는 중입니다.'
+                                      : 'AI 호출 시 크레딧이 차감됩니다.',
+                                  style: const TextStyle(
+                                      color: Color(0xFF7A8F82), fontSize: 12),
                                 )
                               else
                                 FutureBuilder<List<String>>(
@@ -2068,9 +2612,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
   }
 
   String _normalizeIngredientName(String value) {
-    final head = value.split('(').first;
-    final cleaned = head.replaceAll(RegExp(r'[^\w\s가-'), ' ');
-    return cleaned.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
+    return value.split('(').first.trim().toLowerCase();
   }
 
   String _stripStepNumber(String value) {
@@ -2082,7 +2624,7 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
     label = label.replaceAll(RegExp(r'\d+[\/\d\s\.]*'), ' ');
     label = label.replaceAll(
       RegExp(
-        r'(g|kg|ml|l|cc|tbsp|tsp|cup|ea|마리|큰술|작은술',
+        r'(g|kg|ml|l|cc|tbsp|tsp|cup|ea|마리|큰술|작은술)',
         caseSensitive: false,
       ),
       ' ',

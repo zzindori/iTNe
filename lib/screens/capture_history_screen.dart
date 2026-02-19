@@ -4,13 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../data/dao/capture_dao.dart';
 import '../data/services/credit_service.dart';
+import '../data/services/ad_service.dart';
 import '../models/capture_record.dart';
 import '../models/credit_provider.dart';
 import '../config/app_strings.dart';
 import '../config/app_config.dart';
+import '../main.dart';
 import '../widgets/credit_balance_widget.dart';
 import 'capture_detail_screen.dart';
 import 'recipe_recommendation_screen.dart';
+import 'reward_claim_screen.dart';
 
 class CaptureHistoryScreen extends StatefulWidget {
   final String? initialQuery;
@@ -230,14 +233,29 @@ class _CaptureHistoryScreenState extends State<CaptureHistoryScreen> {
       try {
         await File(item.filePath).delete();
       } catch (_) {}
-      await _dao.deleteCapture(item.id);
+      final deleted = await _dao.deleteCapture(item.id);
+      if (!deleted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('삭제에 실패했습니다. 다시 시도해 주세요.')),
+          );
+        }
+        return;
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(strings.historyDeleteSuccess)),
         );
       }
       _refresh();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('❌ [History] delete failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('삭제에 실패했습니다. 다시 시도해 주세요.')),
+        );
+      }
+    }
   }
 
 
@@ -313,14 +331,96 @@ class _CaptureHistoryScreenState extends State<CaptureHistoryScreen> {
                           ),
                           child: CreditBalancePanel(
                             creditProvider: sheetContext.read<CreditProvider>(),
-                            onWatchAd: () {
+                            onWatchAd: () async {
+                              final adService = AdService();
+                              
                               Navigator.pop(sheetContext);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(creditService.getUIString('snackbar_ad_coming_soon')),
-                                  duration: const Duration(seconds: 2),
-                                ),
+                              
+                              // Wait for bottom sheet context to dispose before using outer context
+                              await Future.delayed(const Duration(milliseconds: 100));
+                              
+                              if (!mounted) return;
+                              
+                              // Check if ad is ready
+                              if (!adService.isAdReady) {
+                                print('⏳ [Screen] Ad not ready, loading...');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(creditService.getUIString('snackbar_ad_loading')),
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                                adService.loadRewardedAd();
+                                
+                                // Wait for ad to be ready (poll every 500ms, max 30 seconds)
+                                int attempts = 0;
+                                while (!adService.isAdReady && attempts < 60) {
+                                  await Future.delayed(const Duration(milliseconds: 500));
+                                  attempts++;
+                                  print('⏳ [Screen] Waiting for ad... attempts: $attempts');
+                                }
+                                
+                                if (!adService.isAdReady) {
+                                  print('❌ [Screen] Ad failed to load after 30 seconds');
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(creditService.getUIString('snackbar_ad_failed')),
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+                                print('✅ [Screen] Ad ready after loading');
+                              }
+                              
+                              // Show the ad
+                              print('📱 [Screen] Showing rewarded ad...');
+                              bool rewardCallbackFired = false;
+                              final rewardAmount = 0.5;
+                              final rewardEarned = await adService.showRewardedAd(
+                                onReward: (amount) {
+                                  rewardCallbackFired = true;
+                                  print('🎁 [Screen] Reward callback called: $amount');
+                                },
+                                onAdDismissed: () {
+                                  if (!rewardCallbackFired) {
+                                    return;
+                                  }
+                                  navigatorKey.currentState?.push(
+                                    PageRouteBuilder(
+                                      pageBuilder: (_, __, ___) => RewardClaimScreen(
+                                        rewardAmount: rewardAmount,
+                                        symbol: creditService.getUIString('symbol'),
+                                      ),
+                                      transitionDuration: Duration.zero,
+                                      reverseTransitionDuration: Duration.zero,
+                                    ),
+                                  );
+                                },
                               );
+                              
+                              print('📱 [Screen] Ad finished. Reward earned: $rewardEarned');
+                              
+                              // Check if context is still valid (user didn't navigate away)
+                              if (!mounted) {
+                                print('⚠️ [Screen] Context deactivated, skipping notification');
+                                return;
+                              }
+                              
+                              if (!rewardEarned) {
+                                print('❌ [Screen] No reward earned, user closed ad early');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(creditService.getUIString('snackbar_ad_failed')),
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                                return;
+                              }
+                              
+                              print('✅ [Screen] User earned reward, reward screen shown on ad dismiss');
                             },
                             onPurchase: () {
                               Navigator.pop(sheetContext);
@@ -801,6 +901,15 @@ class _CaptureHistoryScreenState extends State<CaptureHistoryScreen> {
               ),
             );
             if (result is Map) {
+              final deletedId = result['deletedId'] as String?;
+              if (deletedId != null && deletedId.isNotEmpty) {
+                setState(() {
+                  if (_highlightId == deletedId) {
+                    _highlightId = null;
+                    _highlightFreshness = null;
+                  }
+                });
+              }
               final highlightId = result['highlightId'] as String?;
               final highlightFreshness = result['highlightFreshness'] as String?;
               if ((highlightId != null && highlightId.isNotEmpty) ||

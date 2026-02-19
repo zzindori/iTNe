@@ -301,11 +301,20 @@ class RecipeRecommendationService {
     }
 
     final endpoint = AppConfig.instance.aiEndpoint.trim();
-    final uri = endpoint.isEmpty
+    final rawUri = endpoint.isEmpty
         ? Uri.parse(
             'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$apiKey',
           )
         : Uri.parse(endpoint);
+    final isGeminiHost = rawUri.host.contains('generativelanguage.googleapis.com');
+    final uri = isGeminiHost && !rawUri.queryParameters.containsKey('key')
+        ? rawUri.replace(
+            queryParameters: {
+              ...rawUri.queryParameters,
+              'key': apiKey,
+            },
+          )
+        : rawUri;
 
     final requestBody = jsonEncode({
       'contents': [
@@ -327,13 +336,26 @@ class RecipeRecommendationService {
     final response = await http
         .post(
           uri,
-          headers: {'Content-Type': 'application/json'},
+          headers: {
+            'Content-Type': 'application/json',
+            if (isGeminiHost) 'x-goog-api-key': apiKey,
+          },
           body: requestBody,
         )
         .timeout(timeout);
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException('Gemini API failed: ${response.statusCode}');
+      String errorMessage = '';
+      try {
+        final payload = jsonDecode(response.body) as Map<String, dynamic>;
+        final error = payload['error'];
+        if (error is Map<String, dynamic>) {
+          errorMessage = (error['message'] ?? '').toString();
+        }
+      } catch (_) {}
+      debugPrint('❌ [RecipeAPI] status=${response.statusCode}, body=${response.body}');
+      final detail = errorMessage.isNotEmpty ? ' - $errorMessage' : '';
+      throw HttpException('Gemini API failed: ${response.statusCode}$detail');
     }
 
     return jsonDecode(response.body) as Map<String, dynamic>;

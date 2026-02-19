@@ -11,11 +11,13 @@ import '../screens/capture_detail_screen.dart';
 class PhotoGallerySection extends StatefulWidget {
   final List<CapturedPhoto> photos;
   final ValueChanged<CapturedPhoto>? onDeleteCurrent;
+  final Future<void> Function()? onRefreshRequested;
 
   const PhotoGallerySection({
     super.key,
     required this.photos,
     this.onDeleteCurrent,
+    this.onRefreshRequested,
   });
 
   @override
@@ -602,11 +604,16 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                     onPressed: () async {
-                      await Navigator.of(context).push(
+                      final result = await Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => CaptureDetailScreen(record: record),
                         ),
                       );
+                      if (result is Map && result['deletedId'] != null) {
+                        if (widget.onRefreshRequested != null) {
+                          await widget.onRefreshRequested!.call();
+                        }
+                      }
                       if (mounted) {
                         setState(() {});
                       }

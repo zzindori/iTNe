@@ -79,6 +79,18 @@ class CreditProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> addCreditsForDebug(double credits) async {
+    try {
+      final result = await _service.addCreditsForDebug(credits);
+      await _refreshBalance();
+      return result;
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Check if user has enough credits
   bool hasEnough(CreditPackage package) {
     if (_balance == null) return false;

@@ -87,8 +87,9 @@ class CaptureDao {
     });
   }
 
-  Future<void> deleteCapture(String captureId) async {
+  Future<bool> deleteCapture(String captureId) async {
     final db = await AppDatabase.instance.database;
+    int deletedRows = 0;
     await db.transaction((txn) async {
       await txn.delete(
         'capture_state_tags',
@@ -100,12 +101,13 @@ class CaptureDao {
         where: 'capture_id = ?',
         whereArgs: [captureId],
       );
-      await txn.delete(
+      deletedRows = await txn.delete(
         'captures',
         where: 'id = ?',
         whereArgs: [captureId],
       );
     });
+    return deletedRows > 0;
   }
 
   Future<void> resetForReanalysis(String captureId) async {

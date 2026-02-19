@@ -36,15 +36,30 @@ class AiRecognitionService {
     required String captureId,
     required String filePath,
   }) {
-    _shouldEnqueue(captureId).then((shouldEnqueue) {
-      if (!shouldEnqueue) {
-        debugPrint('🧠 AI 큐 스킵(이미 실패/완료): $captureId');
-        return;
-      }
-      debugPrint('🧠 AI 큐 추가: $captureId');
-      _queue.add(_RecognitionTask(captureId: captureId, filePath: filePath));
-      _runNext();
-    });
+    enqueueRecognitionAndWait(captureId: captureId, filePath: filePath);
+  }
+
+  Future<bool> enqueueRecognitionAndWait({
+    required String captureId,
+    required String filePath,
+  }) async {
+    final shouldEnqueue = await _shouldEnqueue(captureId);
+    if (!shouldEnqueue) {
+      debugPrint('🧠 AI 큐 스킵(이미 실패/완료): $captureId');
+      return false;
+    }
+
+    debugPrint('🧠 AI 큐 추가: $captureId');
+    final completer = Completer<bool>();
+    _queue.add(
+      _RecognitionTask(
+        captureId: captureId,
+        filePath: filePath,
+        completer: completer,
+      ),
+    );
+    _runNext();
+    return completer.future;
   }
 
   void _runNext() {
@@ -53,7 +68,15 @@ class AiRecognitionService {
     }
     _running = true;
     final task = _queue.removeAt(0);
-    _process(task).whenComplete(() {
+    _process(task).then((success) {
+      if (task.completer != null && !task.completer!.isCompleted) {
+        task.completer!.complete(success);
+      }
+    }).catchError((_) {
+      if (task.completer != null && !task.completer!.isCompleted) {
+        task.completer!.complete(false);
+      }
+    }).whenComplete(() {
       _running = false;
       _runNext();
     });
@@ -74,7 +97,7 @@ class AiRecognitionService {
     }
   }
 
-  Future<void> _process(_RecognitionTask task) async {
+  Future<bool> _process(_RecognitionTask task) async {
     await _dao.insertAiRequestedEvent(task.captureId);
     try {
       debugPrint('🧠 AI 처리 시작: ${task.captureId}');
@@ -84,15 +107,17 @@ class AiRecognitionService {
         debugPrint('🧠 AI 결과 비식재료(실패 처리): ${task.captureId}');
         await _dao.updateFromAiResult(normalized);
         revision.value++;
-        return;
+        return true;
       }
       await _dao.updateFromAiResult(normalized);
       revision.value++;
       debugPrint('🧠 AI 처리 완료: ${task.captureId}');
+      return true;
     } catch (e) {
       debugPrint('🧠 AI 처리 실패: ${task.captureId} / $e');
       await _dao.markAiFailed(task.captureId, e.toString());
       revision.value++;
+      return false;
     }
   }
 
@@ -764,9 +789,11 @@ class _OcrSignal {
 class _RecognitionTask {
   final String captureId;
   final String filePath;
+  final Completer<bool>? completer;
 
   _RecognitionTask({
     required this.captureId,
     required this.filePath,
+    this.completer,
   });
 }
