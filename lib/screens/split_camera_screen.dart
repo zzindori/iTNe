@@ -34,7 +34,8 @@ class SplitCameraScreen extends StatefulWidget {
   State<SplitCameraScreen> createState() => _SplitCameraScreenState();
 }
 
-class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindingObserver {
+class _SplitCameraScreenState extends State<SplitCameraScreen>
+    with WidgetsBindingObserver {
   CameraController? _controller;
   bool _isInitialized = false;
   bool _isInitializing = false;
@@ -106,7 +107,8 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
                         decoration: BoxDecoration(
                           color: const Color(0xFFF7F1E4),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFF2A4DB3), width: 2),
+                          border: Border.all(
+                              color: const Color(0xFF2A4DB3), width: 2),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.2),
@@ -118,97 +120,110 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF2A4DB3),
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(4)),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    strings.deleteButton,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                Container(
-                                  width: 18,
-                                  height: 18,
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.shade700,
-                                    borderRadius: BorderRadius.circular(3),
-                                  ),
-                                  child: const Center(
-                                    child: Icon(Icons.close, size: 12, color: Colors.white),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 38,
-                                  height: 38,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFE53935),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Center(
-                                    child: Icon(Icons.close, color: Colors.white, size: 22),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(top: 5),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 8),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF2A4DB3),
+                                borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(4)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
                                     child: Text(
-                                      strings.get('delete_pending_countdown', params: {
-                                        'seconds': remaining.toString(),
-                                      }),
-                                      textAlign: TextAlign.left,
-                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                            color: Colors.black87,
-                                          ),
+                                      strings.deleteButton,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                            child: Row(
-                              children: [
-                                const Spacer(),
-                                SizedBox(
-                                  height: 34,
-                                  child: OutlinedButton(
-                                    onPressed: () {
-                                      canceled = true;
-                                      Navigator.of(context).pop(true);
-                                    },
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.black87,
-                                      side: const BorderSide(color: Colors.black26),
-                                      backgroundColor: const Color(0xFFEDEDED),
-                                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
+                                  Container(
+                                    width: 18,
+                                    height: 18,
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.shade700,
+                                      borderRadius: BorderRadius.circular(3),
                                     ),
-                                    child: Text(strings.cancelButton),
+                                    child: const Center(
+                                      child: Icon(Icons.close,
+                                          size: 12, color: Colors.white),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    width: 38,
+                                    height: 38,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFE53935),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Center(
+                                      child: Icon(Icons.close,
+                                          color: Colors.white, size: 22),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(top: 5),
+                                      child: Text(
+                                        strings.get('delete_pending_countdown',
+                                            params: {
+                                              'seconds': remaining.toString(),
+                                            }),
+                                        textAlign: TextAlign.left,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              color: Colors.black87,
+                                            ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                              child: Row(
+                                children: [
+                                  const Spacer(),
+                                  SizedBox(
+                                    height: 34,
+                                    child: OutlinedButton(
+                                      onPressed: () {
+                                        canceled = true;
+                                        Navigator.of(context).pop(true);
+                                      },
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Colors.black87,
+                                        side: const BorderSide(
+                                            color: Colors.black26),
+                                        backgroundColor:
+                                            const Color(0xFFEDEDED),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 20),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(2)),
+                                      ),
+                                      child: Text(strings.cancelButton),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -272,7 +287,7 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
         await _disposeController();
       }
       debugPrint('카메라 초기화 시작 작업...');
-      
+
       if (widget.cameras.isEmpty) {
         debugPrint('사용 가능한 카메라가 없음');
         setState(() {
@@ -337,7 +352,9 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
   }
 
   Future<void> _toggleFlashMode() async {
-    if (_isDisposingController || _controller == null || !_controller!.value.isInitialized) {
+    if (_isDisposingController ||
+        _controller == null ||
+        !_controller!.value.isInitialized) {
       return;
     }
 
@@ -358,7 +375,9 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
   }
 
   Future<void> _setZoom(double value) async {
-    if (_isDisposingController || _controller == null || !_controller!.value.isInitialized) {
+    if (_isDisposingController ||
+        _controller == null ||
+        !_controller!.value.isInitialized) {
       return;
     }
     final next = value.clamp(_minZoom, _maxZoom);
@@ -402,7 +421,8 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
       return;
     }
 
-    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
       await _disposeController();
     } else if (state == AppLifecycleState.resumed) {
       _initializeCamera();
@@ -433,7 +453,9 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
   }
 
   Future<void> _takePicture() async {
-    if (_isDisposingController || _controller == null || !_controller!.value.isInitialized) {
+    if (_isDisposingController ||
+        _controller == null ||
+        !_controller!.value.isInitialized) {
       return;
     }
 
@@ -452,10 +474,10 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
       }
 
       final image = await _controller!.takePicture();
-      
+
       // �쪽 50% �역��롭�서 �
       final croppedFile = await _cropImageToTop50Percent(File(image.path));
-      
+
       final photo = CapturedPhoto(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         file: croppedFile,
@@ -465,60 +487,82 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
       final record = CaptureRecord(
         id: photo.id,
         filePath: croppedFile.path,
-        thumbnailPath: '',
+        thumbnailPath: null,
         createdAt: photo.capturedAt,
         category: 'ETC',
         primaryLabel: AppConfig.instance.defaultPrimaryLabel,
-        secondaryLabel: '',
+        secondaryLabel: null,
         secondaryLabelGuess: false,
         stateTags: const [],
-        freshnessHint: '',
-        shelfLifeDays: 0,
-        amountLabel: '',
-        usageRole: '',
-        confidence: 0.0,
-        modelVersion: '',
-        aiRawJson: {},
+        freshnessHint: null,
+        shelfLifeDays: null,
+        amountLabel: null,
+        usageRole: null,
+        confidence: null,
+        modelVersion: null,
+        aiRawJson: null,
       );
 
+      var captureInserted = false;
       try {
         await _captureDao.insertCapture(record);
+        captureInserted = true;
       } catch (e) {
-        debugPrint('DB ��류: $e');
+        debugPrint('Capture insert failed: $e');
+      }
+
+      if (!captureInserted) {
+        if (await croppedFile.exists()) {
+          await croppedFile.delete();
+        }
+        if (!mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content:
+                Text(AppStrings.instance.get('snackbar_capture_save_failed')),
+          ),
+        );
+        setState(() {
+          _isCapturing = false;
+        });
+        return;
       }
 
       final canProceed = await _confirmAndDeductIngredientScan();
       if (canProceed) {
         AiRecognitionService.instance
             .enqueueRecognitionAndWait(
-              captureId: photo.id,
-              filePath: croppedFile.path,
-            )
+          captureId: photo.id,
+          filePath: croppedFile.path,
+        )
             .then((success) async {
-              if (!mounted) {
-                return;
-              }
-              if (!success) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('AI 분석 실패로 크레딧이 차감되지 않았습니다')),
-                );
-                return;
-              }
+          if (!mounted) {
+            return;
+          }
+          if (!success) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('AI 분석 실패로 크레딧이 차감되지 않았습니다')),
+            );
+            return;
+          }
 
-              final creditProvider = context.read<CreditProvider>();
-              final authToken =
-                  await creditProvider.deductCredits(CreditPackage.ingredientScan);
-              if (!mounted) {
-                return;
-              }
-              if (authToken == null || authToken.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(creditProvider.getUIString('snackbar_deduct_failed')),
-                  ),
-                );
-              }
-            });
+          final creditProvider = context.read<CreditProvider>();
+          final authToken =
+              await creditProvider.deductCredits(CreditPackage.ingredientScan);
+          if (!mounted) {
+            return;
+          }
+          if (authToken == null || authToken.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content:
+                    Text(creditProvider.getUIString('snackbar_deduct_failed')),
+              ),
+            );
+          }
+        });
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('AI 분석건너�니')),
@@ -552,27 +596,27 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
     try {
       final imageData = await imageFile.readAsBytes();
       final image = img.decodeImage(imageData);
-      
+
       if (image == null) return imageFile;
-      
+
       final width = image.width;
       final height = image.height;
-      
+
       // ��지�9:16�로 �롭 (중앙 기�)
       const targetAspect = 9 / 16;
       int targetWidth = width;
       int targetHeight = height;
-      
+
       if (width / height > targetAspect) {
         targetWidth = (height * targetAspect).round();
       } else if (width / height < targetAspect) {
         targetHeight = (width / targetAspect).round();
       }
-      
+
       // 중앙 기� �롭
       final cropX = ((width - targetWidth) / 2).round();
       final cropY = ((height - targetHeight) / 2).round();
-      
+
       final cropped9x16 = img.copyCrop(
         image,
         x: cropX,
@@ -580,7 +624,7 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
         width: targetWidth,
         height: targetHeight,
       );
-      
+
       // 9:16 ��지�쪽 50%�추출
       final half = (cropped9x16.height / 2).round();
       final croppedTop50 = img.copyCrop(
@@ -590,10 +634,10 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
         width: cropped9x16.width,
         height: half,
       );
-      
+
       final croppedData = img.encodeJpg(croppedTop50, quality: 95);
       await imageFile.writeAsBytes(croppedData);
-      
+
       return imageFile;
     } catch (e) {
       debugPrint('��지 �롭 �류: $e');
@@ -615,7 +659,9 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
 
     if (currentBalance == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(creditProvider.getUIString('snackbar_loading_credit'))),
+        SnackBar(
+            content:
+                Text(creditProvider.getUIString('snackbar_loading_credit'))),
       );
       return false;
     }
@@ -627,9 +673,9 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
       onConfirm: () {},
       onCharge: () async {
         Navigator.pop(context, false);
-        
+
         final adService = AdService();
-        
+
         // Check if ad is ready
         if (!adService.isAdReady) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -641,7 +687,7 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
           adService.loadRewardedAd();
           return;
         }
-        
+
         // Show the ad
         print('📱 [Camera] Showing rewarded ad...');
         bool rewardCallbackFired = false;
@@ -667,15 +713,15 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
             );
           },
         );
-        
+
         print('📱 [Camera] Ad finished. Reward earned: $rewardEarned');
-        
+
         // Check if context is still valid (user didn't navigate away)
         if (!mounted) {
           print('⚠️ [Camera] Context deactivated, skipping notification');
           return;
         }
-        
+
         if (!rewardEarned) {
           print('❌ [Camera] No reward earned, user closed ad early');
           ScaffoldMessenger.of(context).showSnackBar(
@@ -686,8 +732,9 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
           );
           return;
         }
-        
-        print('✅ [Camera] User earned reward, reward screen shown on ad dismiss');
+
+        print(
+            '✅ [Camera] User earned reward, reward screen shown on ad dismiss');
       },
     );
 
@@ -717,7 +764,7 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
     if (photo == null) {
       return;
     }
-    
+
     _deletePending = true;
     final canceled = await _showDeleteCountdownDialog(context);
     if (!mounted || canceled || _capturedPhotos.isEmpty) {
@@ -850,8 +897,10 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
                     child: SliderTheme(
                       data: SliderTheme.of(context).copyWith(
                         trackHeight: 2,
-                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                        thumbShape:
+                            const RoundSliderThumbShape(enabledThumbRadius: 6),
+                        overlayShape:
+                            const RoundSliderOverlayShape(overlayRadius: 12),
                       ),
                       child: Slider(
                         value: _currentZoom.clamp(_minZoom, _maxZoom),
@@ -860,7 +909,9 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
                         divisions: _maxZoom > _minZoom
                             ? ((_maxZoom - _minZoom) / 0.1).round()
                             : null,
-                        onChanged: _maxZoom > _minZoom ? (value) => _setZoom(value) : null,
+                        onChanged: _maxZoom > _minZoom
+                            ? (value) => _setZoom(value)
+                            : null,
                       ),
                     ),
                   ),
@@ -877,13 +928,15 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
                   TextButton(
                     onPressed: _currentZoom != 1.0 ? () => _setZoom(1.0) : null,
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       minimumSize: const Size(0, 0),
                       foregroundColor: Colors.white,
                     ),
                     child: const Text(
                       '1x',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      style:
+                          TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -896,23 +949,25 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
             left: 0,
             right: 0,
             bottom: 0,
-            height: MediaQuery.of(context).size.height * AppConfig.instance.splitRatio,
+            height: MediaQuery.of(context).size.height *
+                AppConfig.instance.splitRatio,
             child: PhotoGallerySection(
               key: _galleryKey,
               photos: _capturedPhotos,
-              onDeleteCurrent: (photo) { _deleteCurrentPhoto(photo); },
+              onDeleteCurrent: (photo) {
+                _deleteCurrentPhoto(photo);
+              },
               onRefreshRequested: _loadCapturedHistory,
             ),
           ),
         ],
       ),
       floatingActionButton: _isInitialized && _errorMessage == null
-          ? Consumer<CreditProvider>(
-              builder: (context, creditProvider, _) {
-                final creditService = CreditService();
-                final balanceText =
-                    creditProvider.balance?.credits.toStringAsFixed(1) ?? '--';
-                return Row(
+          ? Consumer<CreditProvider>(builder: (context, creditProvider, _) {
+              final creditService = CreditService();
+              final balanceText =
+                  creditProvider.balance?.credits.toStringAsFixed(1) ?? '--';
+              return Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   FloatingActionButton.small(
@@ -943,7 +998,8 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
                     },
                     tooltip: AppStrings.instance.recipeButtonTooltip,
                     backgroundColor: Colors.black.withValues(alpha: 0.6),
-                    child: const Icon(Icons.restaurant_menu, color: Colors.white),
+                    child:
+                        const Icon(Icons.restaurant_menu, color: Colors.white),
                   ),
                   const SizedBox(width: 16),
                   FloatingActionButton(
@@ -957,10 +1013,12 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
                             height: 24,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
-                        : const Icon(Icons.camera_alt, size: 32, color: Colors.white),
+                        : const Icon(Icons.camera_alt,
+                            size: 32, color: Colors.white),
                   ),
                   const SizedBox(width: 16),
                   FloatingActionButton.small(
@@ -971,54 +1029,69 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
                         isScrollControlled: true,
                         backgroundColor: Colors.transparent,
                         builder: (sheetContext) {
-                          final height = MediaQuery.of(sheetContext).size.height * 0.6;
+                          final height =
+                              MediaQuery.of(sheetContext).size.height * 0.6;
                           return SizedBox(
                             height: height,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 20),
                               decoration: const BoxDecoration(
                                 color: Color(0xFF1F1F1F),
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                                borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(18)),
                               ),
                               child: CreditBalancePanel(
-                                creditProvider: sheetContext.read<CreditProvider>(),
+                                creditProvider:
+                                    sheetContext.read<CreditProvider>(),
                                 onWatchAd: () async {
                                   final adService = AdService();
                                   final creditService = CreditService();
-                                  
+
                                   Navigator.pop(sheetContext);
-                                  
+
                                   // Wait for bottom sheet context to dispose before using outer context
-                                  await Future.delayed(const Duration(milliseconds: 100));
-                                  
+                                  await Future.delayed(
+                                      const Duration(milliseconds: 100));
+
                                   if (!mounted) return;
-                                  
+
                                   // Check if ad is ready
                                   if (!adService.isAdReady) {
-                                    print('⏳ [Screen] Ad not ready, loading...');
+                                    print(
+                                        '⏳ [Screen] Ad not ready, loading...');
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text(creditService.getUIString('snackbar_ad_loading')),
+                                        content: Text(creditService.getUIString(
+                                            'snackbar_ad_loading')),
                                         duration: const Duration(seconds: 2),
                                       ),
                                     );
                                     adService.loadRewardedAd();
-                                    
+
                                     // Wait for ad to be ready (poll every 500ms, max 30 seconds)
                                     int attempts = 0;
-                                    while (!adService.isAdReady && attempts < 60) {
-                                      await Future.delayed(const Duration(milliseconds: 500));
+                                    while (
+                                        !adService.isAdReady && attempts < 60) {
+                                      await Future.delayed(
+                                          const Duration(milliseconds: 500));
                                       attempts++;
-                                      print('⏳ [Screen] Waiting for ad... attempts: $attempts');
+                                      print(
+                                          '⏳ [Screen] Waiting for ad... attempts: $attempts');
                                     }
-                                    
+
                                     if (!adService.isAdReady) {
-                                      print('❌ [Screen] Ad failed to load after 30 seconds');
+                                      print(
+                                          '❌ [Screen] Ad failed to load after 30 seconds');
                                       if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
                                           SnackBar(
-                                            content: Text(creditService.getUIString('snackbar_ad_failed')),
-                                            duration: const Duration(seconds: 2),
+                                            content: Text(
+                                                creditService.getUIString(
+                                                    'snackbar_ad_failed')),
+                                            duration:
+                                                const Duration(seconds: 2),
                                           ),
                                         );
                                       }
@@ -1026,11 +1099,12 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
                                     }
                                     print('✅ [Screen] Ad ready after loading');
                                   }
-                                  
+
                                   // Show the ad
                                   bool rewardCallbackFired = false;
                                   final rewardAmount = 0.5;
-                                  final rewardEarned = await adService.showRewardedAd(
+                                  final rewardEarned =
+                                      await adService.showRewardedAd(
                                     onReward: (amount) {
                                       rewardCallbackFired = true;
                                     },
@@ -1040,33 +1114,39 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
                                       }
                                       navigatorKey.currentState?.push(
                                         PageRouteBuilder(
-                                          pageBuilder: (_, __, ___) => RewardClaimScreen(
+                                          pageBuilder: (_, __, ___) =>
+                                              RewardClaimScreen(
                                             rewardAmount: rewardAmount,
-                                            symbol: creditService.getUIString('symbol'),
+                                            symbol: creditService
+                                                .getUIString('symbol'),
                                           ),
                                           transitionDuration: Duration.zero,
-                                          reverseTransitionDuration: Duration.zero,
+                                          reverseTransitionDuration:
+                                              Duration.zero,
                                         ),
                                       );
                                     },
                                   );
-                                  
+
                                   if (!rewardEarned) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text(creditService.getUIString('snackbar_ad_failed')),
+                                        content: Text(creditService
+                                            .getUIString('snackbar_ad_failed')),
                                         duration: const Duration(seconds: 2),
                                       ),
                                     );
                                     return;
                                   }
-                                  print('✅ [Screen] User earned reward, reward screen shown on ad dismiss');
+                                  print(
+                                      '✅ [Screen] User earned reward, reward screen shown on ad dismiss');
                                 },
                                 onPurchase: () {
                                   Navigator.pop(sheetContext);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text(creditService.getUIString('snackbar_purchase_coming_soon')),
+                                      content: Text(creditService.getUIString(
+                                          'snackbar_purchase_coming_soon')),
                                       duration: const Duration(seconds: 2),
                                     ),
                                   );
@@ -1090,7 +1170,11 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
                   const SizedBox(width: 12),
                   FloatingActionButton.small(
                     heroTag: 'delete_fab',
-                    onPressed: _capturedPhotos.isEmpty ? null : () { _deleteCurrentPhoto(); },
+                    onPressed: _capturedPhotos.isEmpty
+                        ? null
+                        : () {
+                            _deleteCurrentPhoto();
+                          },
                     backgroundColor: Colors.black.withValues(alpha: 0.6),
                     child: const Icon(Icons.delete, color: Colors.white),
                   ),
@@ -1102,4 +1186,3 @@ class _SplitCameraScreenState extends State<SplitCameraScreen> with WidgetsBindi
     );
   }
 }
-

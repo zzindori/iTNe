@@ -48,8 +48,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   CaptureRecord? _drawerRecord;
   String? _linkedIngredientKey;
-  // ignore: unused_field
-  String? _linkedIngredientLabel;
   final Set<String> _unlinkedIngredients = {};
   String? _missingIngredient;
   List<CaptureRecord> _missingSimilar = const [];
@@ -388,7 +386,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
     setState(() {
       _drawerRecord = record;
       _linkedIngredientKey = key.isEmpty? null : key;
-      _linkedIngredientLabel = ingredient;
     });
     _scaffoldKey.currentState?.openEndDrawer();
   }
@@ -402,7 +399,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
       _unlinkedIngredients.add(key);
       _drawerRecord = null;
       _linkedIngredientKey = null;
-      _linkedIngredientLabel = null;
     });
     Navigator.of(context).maybePop();
   }
@@ -606,7 +602,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
       if (_drawerRecord?.id == record.id) {
         _drawerRecord = null;
         _linkedIngredientKey = null;
-        _linkedIngredientLabel = null;
       }
       _capturesFuture = _captureDao.getAllCaptures();
     });
@@ -1865,7 +1860,6 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen>
                                 if (_drawerRecord?.id == result['deletedId']) {
                                   _drawerRecord = null;
                                   _linkedIngredientKey = null;
-                                  _linkedIngredientLabel = null;
                                 }
                               });
                             }

@@ -9,7 +9,7 @@ class IngredientSubstitutionDao {
     final db = await AppDatabase.instance.database;
     final rows = await db.query(
       'ingredient_substitutions',
-      where: 'recipe_id = ',
+      where: 'recipe_id = ?',
       whereArgs: [recipeId],
       orderBy: 'updated_at DESC',
     );

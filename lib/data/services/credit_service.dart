@@ -165,15 +165,13 @@ class CreditService {
     );
   }
 
-  /// Check if user has enough credits for a package
-  Future<bool> hasEnoughCredits(CreditPackage package) async {
+  Future<bool> _hasEnoughCredits(CreditPackage package) async {
     final balance = await getBalance();
     final cost = getCostInfo(package);
     return balance.credits >= cost.costCredits;
   }
 
-  /// Get remaining credits after a package transaction
-  Future<double> getRemainingCredits(CreditPackage package) async {
+  Future<double> _getRemainingCredits(CreditPackage package) async {
     final balance = await getBalance();
     final cost = getCostInfo(package);
     return balance.credits - cost.costCredits;
@@ -189,13 +187,13 @@ class CreditService {
       // POST /api/credits/deduct
       // { "package": "ingredient_scan", "amount": 1 }
 
-      final hasEnough = await hasEnoughCredits(package);
+      final hasEnough = await _hasEnoughCredits(package);
       if (!hasEnough) {
         debugPrint('Not enough credits: need ${costInfo.costCredits}, have ${_currentBalance?.credits}');
         return null;
       }
 
-      final remaining = await getRemainingCredits(package);
+      final remaining = await _getRemainingCredits(package);
       _currentBalance = CreditBalance(
         credits: remaining,
         lastUpdated: DateTime.now(),
@@ -262,12 +260,6 @@ class CreditService {
   /// Get reward credits from config (2 ads = 1 credit, so 0.5 per ad)
   double getAdRewardCredits() {
     return (_config['credit']['rewards']['ad_watch']['reward_credits'] as num? ?? 0.5).toDouble();
-  }
-
-  /// Check daily ad watch limit
-  bool canWatchAdToday() {
-    // TODO: Implement daily limit tracking
-    return true;
   }
 
   /// Get UI strings from config

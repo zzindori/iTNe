@@ -30,6 +30,7 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
   int _currentPage = 0;
   bool _isPhotoInteracting = false;
   final CaptureDao _captureDao = CaptureDao();
+  final Map<String, CaptureRecord> _cachedRecords = {};
   double _panelHeight = 0;
   double _panelFontScale = 1.4;
   double _panelScaleStart = 1.0;
@@ -167,6 +168,10 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
                     return FutureBuilder<CaptureRecord>(
                       future: _captureDao.getCapture(photo.id),
                       builder: (context, snapshot) {
+                        if (snapshot.data != null) {
+                          _cachedRecords[photo.id] = snapshot.data!;
+                        }
+                        final record = snapshot.data ?? _cachedRecords[photo.id];
                         return Stack(
                           children: [
                             Positioned.fill(
@@ -208,7 +213,7 @@ class _PhotoGallerySectionState extends State<PhotoGallerySection> {
                               left: 12,
                               right: 12,
                               bottom: 120,
-                              child: _buildOverlayWidget(snapshot.data, context),
+                              child: _buildOverlayWidget(record, context),
                             ),
                           ],
                         );
